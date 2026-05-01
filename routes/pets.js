@@ -3,7 +3,7 @@ const Pet = require("../models/Pet");
 const User = require("../models/User");
 const { authenticate } = require("../middleware/authenticate");
 const { requireSecretGroupAccess } = require("../middleware/premium");
-const upload = require("../services/upload");const upload = require("../services/upload");
+const upload = require("../services/upload");
 
 
 const router = express.Router();
@@ -13,9 +13,9 @@ router.use(authenticate);
 
 // ── POST /api/pets ───────────────────────────────────────────
 /**
- * upload.array('photos', 5), Report a new lost/found pet
- */upload.array('photos', 5), 
-router.post("/", async (req, res) => {
+ * Report a new lost/found pet
+ */
+router.post("/", upload.array('photos', 5), async (req, res) => {
   try {
     const {
       name,
@@ -47,19 +47,24 @@ router.post("/", async (req, res) => {
     // Only premium users can set isSecretGroup
     const user = await User.findById(req.user.sub);
     if (isSecretGroup && !user.isPremium) {
-      return res.status(403).json({ 
-        success: false, 
-        message: "Secret group feature requires Pro or Enterprise subscription" 
-         }
+      return res.status(403).json({
+        success: false,
+        message: "Secret group feature requires Pro or Enterprise subscription"
+      });
+    }
 
-    const pa
+    const pet = new Pet({
+      name,
+      species,
+      breed,
+      age,
       gender,
       color,
       photos,
       location,
       address,
       city,
-     ,
+      country,
       status,
       priority: priority || 'medium',
       isSecretGroup: isSecretGroup || false,
@@ -244,14 +249,13 @@ router.put("/:id", upload.array('photos', 5), async (req, res) => {
 
     Object.assign(pet, updates);
     await pet.save();
-ing creation date
 
     // Handle new photo uploads
-    if (req.fles && req.files.leth > 0) {
-     onst newPhotos = eq.files.map(fil => 
-        `da:${fle.mimetype};base64,${file.buffer.tStrig('base64')}`
+    if (req.files && req.files.length > 0) {
+      const newPhotos = req.files.map(file =>
+        `data:${file.mimetype};base64,${file.buffer.toString('base64')}`
       );
-     uptes.photos = [...(pet.phoos || []), ...nwPhotos];
+      pet.photos = [...(pet.photos || []), ...newPhotos];
     }
     res.json({ success: true, pet });
   } catch (err) {
