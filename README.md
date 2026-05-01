@@ -1,15 +1,19 @@
 # Pet Finder Backend
 
-A Node.js/Express backend API for the Pet Finder application with user authentication, 7-day trial system, and Stripe subscription management.
+A Node.js/Express backend API for the Pet Finder application with user authentication, 7-day trial system, Stripe subscription management, and premium pet tracking features.
 
 ## Features
 
 - **User Authentication**: Register, login, email verification, password reset
 - **7-Day Trial System**: Automatic trial activation on registration with expiry tracking
-- **Subscription Management**: Stripe integration for paid plans (Basic, Pro, Enterprise)
+- **Subscription Management**: Stripe integration for paid plans (Basic, Pro, Enterprise) with recurring payments
 - **Trial Lifecycle**: Automated cron jobs for trial expiry and warning emails
 - **Email Service**: Resend API integration for transactional emails
-- **Security**: Helmet, rate limiting, JWT authentication, CORS configuration
+- **Pet Reporting**: Report lost/found pets with geolocation
+- **Priority System**: Low, Medium, High, Critical priority levels for pet alerts
+- **Secret Group**: Premium-only access to high-priority lost pet alerts (Pro/Enterprise only)
+- **Geospatial Queries**: Find pets nearby using MongoDB geospatial indexing
+- **Security**: Helmet, rate limiting, JWT authentication, CORS configuration, premium access control
 
 ## Project Structure
 
@@ -97,9 +101,20 @@ The server will start on port 4000 (or the PORT specified in .env).
 
 ### Stripe (`/api/stripe`)
 
-- `POST /api/stripe/create-checkout-session` - Create Stripe checkout
-- `POST /api/stripe/create-portal-session` - Create billing portal
-- `POST /api/stripe/webhook` - Handle Stripe webhooks
+- `POST /api/stripe/create-checkout-session` - Create Stripe checkout (requires authentication)
+- `POST /api/stripe/create-portal-session` - Create billing portal (requires authentication)
+- `POST /api/stripe/webhook` - Handle Stripe webhooks (recurring payments, subscription updates)
+
+### Pets (`/api/pets`)
+
+- `POST /api/pets` - Report a new lost/found pet (requires authentication)
+- `GET /api/pets` - Get all pets (excludes secret group for non-premium users)
+- `GET /api/pets/nearby` - Get pets near a location (for map view)
+- `GET /api/pets/secret-group` - Get secret group pets (Pro/Enterprise only)
+- `GET /api/pets/high-priority` - Get high-priority and critical pets (Pro/Enterprise only)
+- `GET /api/pets/:id` - Get a specific pet by ID
+- `PUT /api/pets/:id` - Update a pet report (only by reporter)
+- `DELETE /api/pets/:id` - Delete a pet report (only by reporter)
 
 ### Health
 
@@ -126,10 +141,62 @@ The server will start on port 4000 (or the PORT specified in .env).
   subscriptionEndsAt: Date,
   stripeCustomerId: String,
   stripeSubscriptionId: String,
+  stripeSubscriptionStatus: String (active, past_due, canceled, unpaid),
   
   // Login tracking
   lastLoginAt: Date,
-  loginCount: Number
+  loginCount: Number,
+  
+  // Virtual properties
+  isTrialActive: Boolean,
+  trialDaysRemaining: Number,
+  hasAccess: Boolean,
+  isPremium: Boolean (pro or enterprise),
+  canAccessSecretGroup: Boolean
+}
+```
+
+### Pet Model
+
+```javascript
+{
+  name: String (required),
+  species: String (enum: dog, cat, bird, other),
+  breed: String,
+  age: String,
+  gender: String (enum: male, female, unknown),
+  color: String,
+  photos: [String],
+  
+  // Location (geospatial)
+  location: {
+    type: Point,
+    coordinates: [longitude, latitude]
+  },
+  address: String,
+  city: String,
+  country: String,
+  
+  // Status
+  status: String (enum: lost, found, adopted),
+  priority: String (enum: low, medium, high, critical),
+  
+  // Secret group (premium feature)
+  isSecretGroup: Boolean (default: false),
+  
+  // Reporter
+  reportedBy: ObjectId (ref: User),
+  
+  // Contact info
+  contactPhone: String,
+  contactEmail: String,
+  description: String,
+  
+  // Dates
+  dateLost: Date,
+  dateFound: Date,
+  createdAt: Date,
+  updatedAt: Date
 }
 ```
 
@@ -199,11 +266,28 @@ The server will start on port 4000 (or the PORT specified in .env).
 3. Enter: `https://your-render-url.onrender.com/api/stripe/webhook`
 4. Select events to listen for:
    - `checkout.session.completed`
+   - `customer.subscription.created`
    - `customer.subscription.updated`
    - `customer.subscription.deleted`
    - `invoice.payment_succeeded`
    - `invoice.payment_failed`
+   - `invoice.upcoming` (optional, for payment reminders)
 5. Copy the webhook signing secret and add to Render environment as `STRIPE_WEBHOOK_SECRET`
+
+### Step 6: Configure Stripe Products for Recurring Payments
+
+1. In Stripe Dashboard, create products for each plan:
+   - Basic (monthly & yearly)
+   - Pro (monthly & yearly) - enables secret group access
+   - Enterprise (monthly & yearly) - enables secret group access
+2. Set them as **Recurring** subscriptions
+3. Copy the Price IDs and add to your environment:
+   - `STRIPE_PRICE_BASIC_MONTHLY`
+   - `STRIPE_PRICE_BASIC_YEARLY`
+   - `STRIPE_PRICE_PRO_MONTHLY`
+   - `STRIPE_PRICE_PRO_YEARLY`
+   - `STRIPE_PRICE_ENTERPRISE_MONTHLY`
+   - `STRIPE_PRICE_ENTERPRISE_YEARLY`
 
 ## Testing
 
@@ -231,10 +315,22 @@ curl -X POST http://localhost:4000/api/auth/register \
 - Ensure webhook secret matches in environment variables
 - Check that the webhook endpoint URL is correct
 - Verify the webhook is receiving events from Stripe
+- Make sure `STRIPE_WEBHOOK_SECRET` is set in Render environment
 
 ### CORS Errors
 - Add your frontend URL to `ALLOWED_ORIGINS`
 - For React Native/Expo, requests without Origin header are automatically allowed
+
+### Premium/Secret Group Access Issues
+- Verify user has `pro` or `enterprise` plan
+- Check `stripeSubscriptionStatus` is `active`
+- Ensure subscription hasn't expired (`subscriptionEndsAt`)
+- Verify webhook events are updating user subscription status
+
+### Geospatial Queries Not Working
+- Ensure MongoDB collection has 2dsphere index on location field
+- Verify coordinates are in [longitude, latitude] format
+- Check that location data is being saved correctly
 
 ## License
 

@@ -67,6 +67,7 @@ app.use(globalLimiter);
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/trial", trialRoutes);
 app.use("/api/stripe", stripeRoutes);
+app.use("/api/pets", petRoutes);
 
 app.get("/api/health", (req, res) => res.json({ status: "ok", ts: new Date() }));
 

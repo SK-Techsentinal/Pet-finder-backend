@@ -53,6 +53,7 @@ const userSchema = new mongoose.Schema({
   subscriptionEndsAt: Date,
   stripeCustomerId: String,
   stripeSubscriptionId: String,
+  stripeSubscriptionStatus: String, // active, past_due, canceled, unpaid
   
   // Login tracking
   lastLoginAt: Date,
@@ -98,6 +99,14 @@ userSchema.virtual('hasAccess').get(function() {
     return true;
   }
   return this.isTrialActive;
+});
+
+userSchema.virtual('isPremium').get(function() {
+  return ['pro', 'enterprise'].includes(this.plan) && this.hasAccess;
+});
+
+userSchema.virtual('canAccessSecretGroup').get(function() {
+  return this.isPremium;
 });
 
 // ── Password hashing ───────────────────────────────────────────────
@@ -164,13 +173,29 @@ userSchema.methods.activateSubscription = async function({
   stripeCustomerId,
   stripeSubscriptionId,
   subscriptionEndsAt,
+  subscriptionStatus = 'active',
 }) {
   this.plan = plan;
   this.subscribedAt = new Date();
   this.subscriptionEndsAt = subscriptionEndsAt;
+  this.stripeSubscriptionStatus = subscriptionStatus;
   
   if (stripeCustomerId) this.stripeCustomerId = stripeCustomerId;
   if (stripeSubscriptionId) this.stripeSubscriptionId = stripeSubscriptionId;
+  
+  await this.save();
+};
+
+userSchema.methods.updateSubscriptionStatus = async function(status, subscriptionEndsAt) {
+  this.stripeSubscriptionStatus = status;
+  if (subscriptionEndsAt) {
+    this.subscriptionEndsAt = new Date(subscriptionEndsAt);
+  }
+  
+  // Handle subscription cancellation
+  if (status === 'canceled' || status === 'unpaid') {
+    this.plan = 'free';
+  }
   
   await this.save();
 };

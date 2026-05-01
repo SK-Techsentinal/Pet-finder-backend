@@ -1,6 +1,7 @@
 const express = require("express");
 const { stripe, constructWebhookEvent, getSubscription } = require("../services/stripe");
 const User = require("../models/User");
+const { authenticate } = require("../middleware/authenticate");
 
 const router = express.Router();
 
@@ -9,18 +10,11 @@ const router = express.Router();
  * Creates a Stripe Checkout session for plan upgrade.
  * Frontend redirects user to the returned URL.
  */
-router.post("/create-checkout-session", async (req, res) => {
+router.post("/create-checkout-session", authenticate, async (req, res) => {
   try {
     const { plan, interval = "monthly" } = req.body;
+    const userId = req.user.sub;
     
-    // For now, we'll skip authentication for testing
-    // In production, you'd authenticate the user here
-    const userId = req.body.userId || req.user?.sub;
-    
-    if (!userId) {
-      return res.status(400).json({ success: false, message: "User ID required" });
-    }
-
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
@@ -46,14 +40,9 @@ router.post("/create-checkout-session", async (req, res) => {
 /**
  * Creates a Stripe Customer Portal session for managing subscriptions.
  */
-router.post("/create-portal-session", async (req, res) => {
+router.post("/create-portal-session", authenticate, async (req, res) => {
   try {
-    const userId = req.body.userId || req.user?.sub;
-    
-    if (!userId) {
-      return res.status(400).json({ success: false, message: "User ID required" });
-    }
-
+    const userId = req.user.sub;
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
@@ -95,26 +84,35 @@ router.post("/webhook", express.raw({ type: "application/json" }), async (req, r
             plan,
             stripeCustomerId: session.customer,
             stripeSubscriptionId: session.subscription,
+            subscriptionStatus: 'active',
           });
           console.log(`[Webhook] User ${userId} upgraded to ${plan}`);
         }
         break;
       }
 
-      case "customer.subscription.updated":
+      case "customer.subscription.created":
+      case "customer.subscription.updated": {
+        const subscription = event.data.object;
+        const user = await User.findOne({ stripeSubscriptionId: subscription.id });
+        
+        if (user) {
+          await user.updateSubscriptionStatus(
+            subscription.status,
+            new Date(subscription.current_period_end * 1000)
+          );
+          console.log(`[Webhook] Subscription ${subscription.id} updated to ${subscription.status} for user ${user._id}`);
+        }
+        break;
+      }
+
       case "customer.subscription.deleted": {
         const subscription = event.data.object;
         const user = await User.findOne({ stripeSubscriptionId: subscription.id });
         
         if (user) {
-          if (event.type === "customer.subscription.deleted") {
-            user.plan = "free";
-            user.subscriptionEndsAt = new Date();
-          } else {
-            user.subscriptionEndsAt = new Date(subscription.current_period_end * 1000);
-          }
-          await user.save();
-          console.log(`[Webhook] Subscription ${subscription.id} updated for user ${user._id}`);
+          await user.updateSubscriptionStatus('canceled', new Date());
+          console.log(`[Webhook] Subscription ${subscription.id} canceled for user ${user._id}`);
         }
         break;
       }
@@ -123,6 +121,14 @@ router.post("/webhook", express.raw({ type: "application/json" }), async (req, r
         const invoice = event.data.object;
         const user = await User.findOne({ stripeCustomerId: invoice.customer });
         if (user) {
+          // Update subscription end date on successful payment
+          if (invoice.subscription) {
+            const subscription = await stripe.subscriptions.retrieve(invoice.subscription);
+            await user.updateSubscriptionStatus(
+              subscription.status,
+              new Date(subscription.current_period_end * 1000)
+            );
+          }
           console.log(`[Webhook] Payment succeeded for user ${user._id}`);
         }
         break;
@@ -132,8 +138,16 @@ router.post("/webhook", express.raw({ type: "application/json" }), async (req, r
         const invoice = event.data.object;
         const user = await User.findOne({ stripeCustomerId: invoice.customer });
         if (user) {
+          await user.updateSubscriptionStatus('past_due', null);
           console.log(`[Webhook] Payment failed for user ${user._id}`);
         }
+        break;
+      }
+
+      case "invoice.upcoming": {
+        // Optional: Send reminder email before payment
+        const invoice = event.data.object;
+        console.log(`[Webhook] Upcoming invoice for customer ${invoice.customer}`);
         break;
       }
 
