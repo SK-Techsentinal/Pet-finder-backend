@@ -31,17 +31,7 @@ const ALLOWED_ORIGINS = RAW_ORIGINS.split(",").map(o => o.trim()).filter(Boolean
 
 app.use(
   cors({
-    origin(origin, callback) {
-      // Allow requests with no Origin (native mobile apps, curl, Postman)
-      if (!origin) return callback(null, true);
-
-      if (ALLOWED_ORIGINS.includes(origin)) {
-        callback(null, true);
-      } else {
-        console.warn(`[CORS] Blocked request from origin: ${origin}`);
-        callback(new Error(`Origin ${origin} is not allowed by CORS policy.`));
-      }
-    },
+    origin: "*", // Allow all origins (for development with Lovable)
     credentials: true, // required for cookies / Authorization headers
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
