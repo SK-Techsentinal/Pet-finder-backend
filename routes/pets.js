@@ -3,6 +3,8 @@ const Pet = require("../models/Pet");
 const User = require("../models/User");
 const { authenticate } = require("../middleware/authenticate");
 const { requireSecretGroupAccess } = require("../middleware/premium");
+const upload = require("../services/upload");const upload = require("../services/upload");
+
 
 const router = express.Router();
 
@@ -11,8 +13,8 @@ router.use(authenticate);
 
 // ── POST /api/pets ───────────────────────────────────────────
 /**
- * Report a new lost/found pet
- */
+ * upload.array('photos', 5), Report a new lost/found pet
+ */upload.array('photos', 5), 
 router.post("/", async (req, res) => {
   try {
     const {
@@ -48,21 +50,16 @@ router.post("/", async (req, res) => {
       return res.status(403).json({ 
         success: false, 
         message: "Secret group feature requires Pro or Enterprise subscription" 
-      });
-    }
+         }
 
-    const pet = await Pet.create({
-      name,
-      species,
-      breed,
-      age,
+    const pa
       gender,
       color,
       photos,
       location,
       address,
       city,
-      country,
+     ,
       status,
       priority: priority || 'medium',
       isSecretGroup: isSecretGroup || false,
@@ -219,7 +216,7 @@ router.get("/:id", async (req, res) => {
 /**
  * Update a pet report (only by the reporter)
  */
-router.put("/:id", async (req, res) => {
+router.put("/:id", upload.array('photos', 5), async (req, res) => {
   try {
     const pet = await Pet.findById(req.params.id);
     
@@ -247,7 +244,15 @@ router.put("/:id", async (req, res) => {
 
     Object.assign(pet, updates);
     await pet.save();
+ing creation date
 
+    // Handle new photo uploads
+    if (req.fles && req.files.leth > 0) {
+     onst newPhotos = eq.files.map(fil => 
+        `da:${fle.mimetype};base64,${file.buffer.tStrig('base64')}`
+      );
+     uptes.photos = [...(pet.phoos || []), ...nwPhotos];
+    }
     res.json({ success: true, pet });
   } catch (err) {
     console.error("Update pet error:", err);
