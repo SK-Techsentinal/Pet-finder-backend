@@ -290,4 +290,62 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
+// ── ROUTE 1: Mark pet as Lost ──────────────────────────────
+router.patch('/:id/lost', authMiddleware, async (req, res) => {
+  try {
+    const pet = await Pet.findByIdAndUpdate(
+      req.params.id,
+      {
+        status: 'Lost',
+        lastSeenAddress: req.body.lastSeenAddress,
+        latitude:  req.body.latitude,
+        longitude: req.body.longitude,
+        lostAt: new Date(),
+      },
+      { new: true }
+    );
+    if (!pet) return res.status(404).json({ message: 'Pet not found' });
+    res.json(pet);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// ── ROUTE 2: Public pet page (no login needed) ─────────────
+router.get('/public/:id', async (req, res) => {
+  try {
+    const pet = await Pet.findById(req.params.id)
+      .select('name age breed description photo lastSeenAddress latitude longitude lostAt');
+    if (!pet) return res.status(404).json({ message: 'Pet not found' });
+    res.json(pet);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// ── ROUTE 3: Alert Neighbors within 5 miles ────────────────
+router.post('/:id/alert-neighbors', authMiddleware, async (req, res) => {
+  try {
+    const { latitude, longitude, radiusMiles = 5, petName, publicUrl } = req.body;
+    const radiusMeters = radiusMiles * 1609.34;
+
+    const nearbyUsers = await User.find({
+      location: {
+        $near: {
+          $geometry: { type: 'Point', coordinates: [longitude, latitude] },
+          $maxDistance: radiusMeters,
+        },
+      },
+    });
+
+    // Send email to each nearby user
+    for (const user of nearbyUsers) {
+      await sendAlertEmail(user.email, petName, publicUrl);
+    }
+
+    res.json({ message: 'Alerts sent', usersNotified: nearbyUsers.length });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 module.exports = router;
