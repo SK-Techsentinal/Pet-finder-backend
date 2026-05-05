@@ -1,5 +1,3 @@
-const { sendAlertEmail } = require('../services/email'); 
-
 /**
  * Email service using Resend API.
  * In production, this sends actual emails.
@@ -81,4 +79,4 @@ function generateEmailHtml(template, data) {
   return templates[template] || `<p>${JSON.stringify(data)}</p>`;
 }
 
-module.exports = { sendEmail };
+module.exports = { sendEmail, sendAlertEmail };
