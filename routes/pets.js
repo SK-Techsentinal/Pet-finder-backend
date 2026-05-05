@@ -294,15 +294,14 @@ router.delete("/:id", async (req, res) => {
 // ── ROUTE 1: Mark pet as Lost ──────────────────────────────
 router.patch('/:id/lost')
 {
-  status: 'lost', // Match the lowercase enum in your Pet.js
+  status: 'lost',
   location: {
     type: 'Point',
-    coordinates: [req.body.longitude, req.body.latitude]
+    coordinates: [parseFloat(req.body.longitude), parseFloat(req.body.latitude)]
   },
   lostAt: new Date(),
 }
 
-    );
     if (!pet) return res.status(404).json({ message: 'Pet not found' });
     res.json(pet);
   } catch (err) {
