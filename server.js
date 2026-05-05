@@ -10,6 +10,7 @@ const trialRoutes = require("./routes/trial");
 const stripeRoutes = require("./routes/stripe");
 const petRoutes = require("./routes/pets");
 const feedbackRoutes = require("./routes/feedback");
+const trackerRoutes = require('./routes/tracker');
 const { startTrialCronJobs } = require("./services/trialCron");
 
 const app = express();
@@ -61,6 +62,7 @@ app.use("/api/trial", trialRoutes);
 app.use("/api/stripe", stripeRoutes);
 app.use("/api/pets", petRoutes);
 app.use("/api/feedback", feedbackRoutes);
+app.use('/api/tracker', trackerRoutes);
 
 app.get("/api/health", (req, res) => res.json({ status: "ok", ts: new Date() }));
 
