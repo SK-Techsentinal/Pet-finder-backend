@@ -4,6 +4,7 @@ const User = require("../models/User");
 const { authenticate } = require("../middleware/authenticate");
 const { requireSecretGroupAccess } = require("../middleware/premium");
 const upload = require("../services/upload");
+const { sendAlertEmail } = require('../services/email'); 
 
 
 const router = express.Router();
