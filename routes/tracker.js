@@ -1,52 +1,168 @@
-const express = require('express');
-const router  = express.Router();
-const authenticate = require('../middleware/authenticate');
-const nodemailer = require('nodemailer');
+const express = require("express");
+const User = require("../models/User");
+const { authenticate } = require("../middleware/authenticate");
+const { sendEmail } = require("../services/email");
 
-// GET tracker status for a pet
-router.get('/status/:petId', authenticate, async (req, res) => {
+const router = express.Router();
+
+// All routes require authentication
+router.use(authenticate);
+
+// ── GET /api/trial/status ─────────────────────────────────────
+/**
+ * Returns the caller's current trial/subscription status.
+ * Used by the frontend to gate features and show upgrade prompts.
+ */
+router.get("/status", async (req, res) => {
   try {
-    // If you have a Tracker model:
-    // const tracker = await Tracker.findOne({ petId: req.params.petId });
-    // res.json({ lastSignal: tracker?.lastSignal || null });
+    const user = await User.findById(req.user.sub);
+    if (!user) return res.status(404).json({ success: false, message: "User not found." });
 
-    // Temporary placeholder until you add a Tracker model:
-    res.json({ lastSignal: new Date().toISOString() });
+    const now = new Date();
+
+    const payload = {
+      plan: user.plan,
+      hasAccess: user.hasAccess,
+      isTrialActive: user.isTrialActive,
+      trialDaysRemaining: user.trialDaysRemaining,
+      trialStartedAt: user.trialStartedAt,
+      trialEndsAt: user.trialEndsAt,
+      trialExtensions: user.trialExtensions,
+      subscribedAt: user.subscribedAt,
+      subscriptionEndsAt: user.subscriptionEndsAt,
+      // Convenience flags for the frontend
+      isExpired: user.plan === "expired",
+      isSubscribed: ["basic", "pro", "enterprise"].includes(user.plan),
+      isSubscriptionExpired:
+        ["basic", "pro", "enterprise"].includes(user.plan) &&
+        user.subscriptionEndsAt != null &&
+        now > user.subscriptionEndsAt,
+      // Nudge: show upgrade banner when ≤ 3 days left
+      showUpgradeBanner: user.plan === "trial" && user.trialDaysRemaining <= 3,
+    };
+
+    res.json({ success: true, trial: payload });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("Trial status error:", err);
+    res.status(500).json({ success: false, message: "Could not retrieve trial status." });
   }
 });
 
-// POST emergency alert when tracker disconnects
-router.post('/alert', authenticate, async (req, res) => {
+// ── POST /api/trial/extend ────────────────────────────────────
+/**
+ * Extends a user's trial by up to 3 days.
+ * In production: gate this behind admin role or support tooling.
+ * Max 2 extensions enforced on the model.
+ */
+router.post("/extend", async (req, res) => {
   try {
-    const { petName, lastSignalMinutesAgo } = req.body;
-    const ownerEmail = req.user.email;
+    const { days = 3, userId } = req.body;
 
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
+    // Allow admins to extend any user; regular users can only extend their own
+    const targetId = req.user.role === "admin" && userId ? userId : req.user.sub;
+    const user = await User.findById(targetId);
+
+    if (!user) return res.status(404).json({ success: false, message: "User not found." });
+    if (user.plan !== "trial") {
+      return res.status(400).json({ success: false, message: "Trial extension only applies to trial accounts." });
+    }
+
+    await user.extendTrial(Number(days));
+
+    res.json({
+      success: true,
+      message: `Trial extended by ${days} day(s).`,
+      trialEndsAt: user.trialEndsAt,
+      trialDaysRemaining: user.trialDaysRemaining,
+      extensionsUsed: user.trialExtensions,
     });
-
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: ownerEmail,
-      subject: `🚨 URGENT: ${petName}'s GPS tracker disconnected!`,
-      html: `
-        <h2>🚨 Tracker Disconnected Alert</h2>
-        <p>Your pet <strong>${petName}</strong> has not sent a GPS signal 
-        for <strong>${lastSignalMinutesAgo} minutes</strong>.</p>
-        <p>Please check on your pet immediately.</p>
-      `,
-    });
-
-    res.json({ ok: true, message: 'Emergency alert sent' });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    // Model throws a descriptive error when max extensions exceeded
+    if (err.message.includes("maximum")) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    console.error("Extend trial error:", err);
+    res.status(500).json({ success: false, message: "Could not extend trial." });
   }
 });
+
+// ── POST /api/trial/convert ───────────────────────────────────
+/**
+ * Simulates plan upgrade (in prod, called from Stripe webhook instead).
+ * Transitions user from trial → paid plan.
+ */
+router.post("/convert", async (req, res) => {
+  try {
+    const { plan, stripeCustomerId, stripeSubscriptionId, subscriptionEndsAt } = req.body;
+
+    const validPlans = ["basic", "pro", "enterprise"];
+    if (!validPlans.includes(plan)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid plan. Must be one of: ${validPlans.join(", ")}.`,
+      });
+    }
+
+    const user = await User.findById(req.user.sub).select("+stripeCustomerId +stripeSubscriptionId");
+    if (!user) return res.status(404).json({ success: false, message: "User not found." });
+
+    await user.activateSubscription({
+      plan,
+      stripeCustomerId,
+      stripeSubscriptionId,
+      subscriptionEndsAt: subscriptionEndsAt ? new Date(subscriptionEndsAt) : null,
+    });
+
+    // Send welcome-to-paid email
+    sendEmail({
+      to: user.email,
+      subject: "Welcome to Pet Finder " + capitalize(plan) + "!",
+      template: "subscriptionConfirmed",
+      data: { name: user.name, plan },
+    }).catch(console.error);
+
+    res.json({
+      success: true,
+      message: `Account upgraded to ${plan}.`,
+      plan: user.plan,
+      subscribedAt: user.subscribedAt,
+    });
+  } catch (err) {
+    console.error("Convert trial error:", err);
+    res.status(500).json({ success: false, message: "Could not convert trial." });
+  }
+});
+
+// ── POST /api/trial/cancel ────────────────────────────────────
+/**
+ * Lets a user voluntarily expire their trial early (e.g. "I don't want to upgrade").
+ * Sets plan to "expired" immediately.
+ */
+router.post("/cancel", async (req, res) => {
+  try {
+    const user = await User.findById(req.user.sub);
+    if (!user) return res.status(404).json({ success: false, message: "User not found." });
+
+    if (user.plan !== "trial") {
+      return res.status(400).json({ success: false, message: "Only trial accounts can be cancelled here." });
+    }
+
+    await user.expireTrial();
+
+    res.json({
+      success: true,
+      message: "Trial cancelled. Your account is now in a limited state.",
+      plan: "expired",
+    });
+  } catch (err) {
+    console.error("Cancel trial error:", err);
+    res.status(500).json({ success: false, message: "Could not cancel trial." });
+  }
+});
+
+// ── Helpers ───────────────────────────────────────────────────
+function capitalize(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
 
 module.exports = router;
