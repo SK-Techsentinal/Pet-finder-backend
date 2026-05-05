@@ -18,7 +18,7 @@ router.get('/status/:petId', authenticate, async (req, res) => {
 });
 
 // POST emergency alert when tracker disconnects
-router.post('/alert', authMiddleware, async (req, res) => {
+router.post('/alert', authenticate, async (req, res) => {
   try {
     const { petName, lastSignalMinutesAgo } = req.body;
     const ownerEmail = req.user.email;
