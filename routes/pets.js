@@ -322,7 +322,7 @@ router.get('/public/:id', async (req, res) => {
 });
 
 // ── ROUTE 3: Alert Neighbors within 5 miles ────────────────
-router.post('/:id/alert-neighbors', authMiddleware, async (req, res) => {
+router.post('/:id/alert-neighbors', authenticate, async (req, res) => {
   try {
     const { latitude, longitude, radiusMiles = 5, petName, publicUrl } = req.body;
     const radiusMeters = radiusMiles * 1609.34;
