@@ -2,7 +2,6 @@ const express = require('express');
 const router  = express.Router();
 const authenticate = require('../middleware/authenticate');
 const nodemailer = require('nodemailer');
-const trackerRoutes = require('./routes/tracker');
 
 // GET tracker status for a pet
 router.get('/status/:petId', authMiddleware, async (req, res) => {
