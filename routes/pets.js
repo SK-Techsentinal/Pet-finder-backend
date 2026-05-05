@@ -306,7 +306,7 @@ router.patch('/:id/lost', authenticate, async (req, res) => {
       },
       { new: true }
     );
-    if (!pet) return res.status(404).json({ message: 'Pet not found' });
+    if (!pet) return res.status(404).json({ success: false, message: 'Pet not found' });
     res.json({ success: true, pet });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -318,7 +318,7 @@ router.get('/public/:id', async (req, res) => {
   try {
     const pet = await Pet.findById(req.params.id)
       .select('name age breed description photos lastSeenAddress location lostAt');
-    if (!pet) return res.status(404).json({ message: 'Pet not found' });
+    if (!pet) return res.status(404).json({ success: false, message: 'Pet not found' });
     res.json({ success: true, pet });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
