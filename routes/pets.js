@@ -306,11 +306,10 @@ router.patch('/:id/lost', authenticate, async (req, res) => {
       },
       { new: true }
     );
-
     if (!pet) return res.status(404).json({ message: 'Pet not found' });
-    res.json(pet);
+    res.json({ success: true, pet });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
@@ -318,11 +317,11 @@ router.patch('/:id/lost', authenticate, async (req, res) => {
 router.get('/public/:id', async (req, res) => {
   try {
     const pet = await Pet.findById(req.params.id)
-      .select('name age breed description photo lastSeenAddress latitude longitude lostAt');
+      .select('name age breed description photos lastSeenAddress location lostAt');
     if (!pet) return res.status(404).json({ message: 'Pet not found' });
-    res.json(pet);
+    res.json({ success: true, pet });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
@@ -335,20 +334,20 @@ router.post('/:id/alert-neighbors', authenticate, async (req, res) => {
     const nearbyUsers = await User.find({
       location: {
         $near: {
-          $geometry: { type: 'Point', coordinates: [longitude, latitude] },
+          $geometry: { type: 'Point', coordinates: [parseFloat(longitude), parseFloat(latitude)] },
           $maxDistance: radiusMeters,
         },
       },
     });
 
-    // Send email to each nearby user
     for (const user of nearbyUsers) {
       await sendAlertEmail(user.email, petName, publicUrl);
     }
 
-    res.json({ message: 'Alerts sent', usersNotified: nearbyUsers.length });
+    res.json({ success: true, message: 'Alerts sent', usersNotified: nearbyUsers.length });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 });
+
 module.exports = router;
