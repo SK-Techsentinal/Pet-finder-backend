@@ -292,19 +292,21 @@ router.delete("/:id", async (req, res) => {
 });
 
 // ── ROUTE 1: Mark pet as Lost ──────────────────────────────
-router.patch('/:id/lost')
-const pet = await Pet.findByIdAndUpdate(
-  req.params.id,
-{
-  status: 'lost',
-  location: {
-    type: 'Point',
-    coordinates: [parseFloat(req.body.longitude), parseFloat(req.body.latitude)]
-  },
-  lostAt: new Date(),
-},
-  { new: true }
-);
+router.patch('/:id/lost', authenticate, async (req, res) => {
+  try {
+    const pet = await Pet.findByIdAndUpdate(
+      req.params.id,
+      {
+        status: 'lost',
+        location: {
+          type: 'Point',
+          coordinates: [parseFloat(req.body.longitude), parseFloat(req.body.latitude)]
+        },
+        lostAt: new Date(),
+      },
+      { new: true }
+    );
+
     if (!pet) return res.status(404).json({ message: 'Pet not found' });
     res.json(pet);
   } catch (err) {
