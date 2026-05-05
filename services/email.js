@@ -1,3 +1,5 @@
+const { sendAlertEmail } = require('../services/email'); 
+
 /**
  * Email service using Resend API.
  * In production, this sends actual emails.
