@@ -334,7 +334,8 @@ router.post('/:id/alert-neighbors', authenticate, async (req, res) => {
     const nearbyUsers = await User.find({
       location: {
         $near: {
-          $geometry: { type: 'Point', coordinates: [parseFloat(longitude), parseFloat(latitude)] },
+          $geometry: { type: 'Point', coordinates: [parseFloat(longitude), parseFloat(latitude)]
+ },
           $maxDistance: radiusMeters,
         },
       },
