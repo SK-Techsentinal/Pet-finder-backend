@@ -291,18 +291,16 @@ router.delete("/:id", async (req, res) => {
 });
 
 // ── ROUTE 1: Mark pet as Lost ──────────────────────────────
-router.patch('/:id/lost', authMiddleware, async (req, res) => {
-  try {
-    const pet = await Pet.findByIdAndUpdate(
-      req.params.id,
-      {
-        status: 'Lost',
-        lastSeenAddress: req.body.lastSeenAddress,
-        latitude:  req.body.latitude,
-        longitude: req.body.longitude,
-        lostAt: new Date(),
-      },
-      { new: true }
+router.patch('/:id/lost')
+{
+  status: 'lost', // Match the lowercase enum in your Pet.js
+  location: {
+    type: 'Point',
+    coordinates: [req.body.longitude, req.body.latitude]
+  },
+  lostAt: new Date(),
+}
+
     );
     if (!pet) return res.status(404).json({ message: 'Pet not found' });
     res.json(pet);
