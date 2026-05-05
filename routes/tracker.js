@@ -1,6 +1,6 @@
 const express = require('express');
 const router  = express.Router();
-const authMiddleware = require('../middleware/auth');
+const authenticate = require('../middleware/authenticate');
 const nodemailer = require('nodemailer');
 
 // GET tracker status for a pet
