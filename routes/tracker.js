@@ -4,7 +4,7 @@ const authenticate = require('../middleware/authenticate');
 const nodemailer = require('nodemailer');
 
 // GET tracker status for a pet
-router.get('/status/:petId', authMiddleware, async (req, res) => {
+router.get('/status/:petId', authenticate, async (req, res) => {
   try {
     // If you have a Tracker model:
     // const tracker = await Tracker.findOne({ petId: req.params.petId });
