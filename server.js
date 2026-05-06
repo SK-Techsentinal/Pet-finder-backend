@@ -5,82 +5,69 @@ const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 
+// Route Imports
 const authRoutes = require("./routes/auth");
 const trialRoutes = require("./routes/trial");
 const stripeRoutes = require("./routes/stripe");
 const petRoutes = require("./routes/pets");
 const feedbackRoutes = require("./routes/feedback");
 const trackerRoutes = require('./routes/tracker');
+const publicRoutes = require('./routes/public'); // Added public route
 const { startTrialCronJobs } = require("./services/trialCron");
 
 const app = express();
 
-// ── CORS ──────────────────────────────────────────────────────
-// ALLOWED_ORIGINS is a comma-separated list in your .env so you
-// can whitelist localhost, your Render URL, and your mobile app
-// host all at once without changing code.
-//
-// Example .env value:
-//   ALLOWED_ORIGINS=http://localhost:3000,https://pet-finder.onrender.com,http://localhost:8081
-//
-// Mobile (Expo Go / bare RN) sends requests from the device IP,
-// not a browser origin, so we also allow requests that carry NO
-// Origin header at all (the `!origin` branch below).
-
-const RAW_ORIGINS = process.env.ALLOWED_ORIGINS ?? process.env.CLIENT_URL ?? "http://localhost:3000";
-const ALLOWED_ORIGINS = RAW_ORIGINS.split(",").map(o => o.trim()).filter(Boolean);
-
-app.use(
-  cors({
-    origin: "*", // Allow all origins (for development with Lovable)
-    credentials: true, // required for cookies / Authorization headers
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
-
-// ── Security ──────────────────────────────────────────────────
+// ── Middleware ────────────────────────────────────────────────
 app.use(helmet());
+app.use(cors({
+  origin: "*", 
+  credentials: true
+}));
 
-// IMPORTANT: Stripe webhook needs the raw body — register BEFORE express.json()
-app.use("/api/stripe/webhook", express.raw({ type: "application/json" }));
-app.use(express.json({ limit: "10kb" }));
-
-// Rate limiting — stricter on auth endpoints
-const globalLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: { success: false, message: "Too many attempts. Please try again in 15 minutes." },
+// Stripe webhook needs raw body, others need JSON
+app.use((req, res, next) => {
+  if (req.originalUrl === '/api/stripe/webhook') {
+    next();
+  } else {
+    express.json()(req, res, next);
+  }
 });
 
+// ── Rate Limiting ─────────────────────────────────────────────
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { success: false, message: "Too many requests." },
+});
 app.use(globalLimiter);
 
 // ── Routes ────────────────────────────────────────────────────
-app.use("/api/auth", authLimiter, authRoutes);
+app.use("/api/auth", authRoutes);
 app.use("/api/trial", trialRoutes);
 app.use("/api/stripe", stripeRoutes);
 app.use("/api/pets", petRoutes);
 app.use("/api/feedback", feedbackRoutes);
 app.use('/api/tracker', trackerRoutes);
+app.use('/public', publicRoutes);
 
 app.get("/api/health", (req, res) => res.json({ status: "ok", ts: new Date() }));
 
-// ── 404 ───────────────────────────────────────────────────────
+// ── Error Handling ────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({ success: false, message: "Route not found." });
 });
 
-// ── Global Error Handler ──────────────────────────────────────
 app.use((err, req, res, next) => {
-  console.error(err);
+  console.error(err.stack);
   res.status(err.status || 500).json({
     success: false,
-    message: process.env.NODE_ENV === "production" ? "Something went wrong." : err.message,
+    message: process.env.NODE_ENV === "production" ? "Internal Server Error" : err.message,
   });
 });
 
-// ── Database & Boot ───────────────────────────────────────────
+// ── Database & Startup ────────────────────────────────────────
+const PORT = process.env.PORT || 4000;
+
 async function start() {
   try {
     await mongoose.connect(process.env.MONGO_URI);
@@ -88,10 +75,11 @@ async function start() {
 
     startTrialCronJobs();
 
-    const PORT = process.env.PORT || 4000;
-    app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
   } catch (err) {
-    console.error("❌ Startup failed:", err);
+    console.error("❌ Database connection failed:", err);
     process.exit(1);
   }
 }
