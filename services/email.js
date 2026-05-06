@@ -79,4 +79,29 @@ function generateEmailHtml(template, data) {
   return templates[template] || `<p>${JSON.stringify(data)}</p>`;
 }
 
+// Add this function:
+async function sendAlertEmail(toEmail, petName, publicUrl) {
+  return sendEmail({
+    to: toEmail,
+    subject: `🚨 Lost Pet Nearby: ${petName}`,
+    template: 'lostPetAlert',
+    data: { petName, publicUrl },
+  });
+}
+
+lostPetAlert: `
+  <h2>🚨 Lost Pet Alert in Your Area</h2>
+  <p>A pet named <strong>${data.petName}</strong> was reported lost near your location.</p>
+  <p><a href="${data.publicUrl}" style="background:#EF4444;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;">
+    View ${data.petName}'s details
+  </a></p>
+`,
+trackerAlert: `
+  <h2>🚨 GPS Tracker Disconnected</h2>
+  <p>Hi ${data.name},</p>
+  <p>Your pet <strong>${data.petName}</strong> has not sent a GPS signal 
+  for <strong>${data.lastSignalMinutesAgo} minutes</strong>.</p>
+  <p>Please check on your pet immediately.</p>
+`,
+  
 module.exports = { sendEmail, sendAlertEmail };
