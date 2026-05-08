@@ -10,25 +10,25 @@ const petSchema = new mongoose.Schema({
     required: true,
     enum: ['dog', 'cat', 'bird', 'rabbit', 'other'],
   },
-  breed: String,
-  age:   String,
+  breed:  String,
+  age:    String,
   gender: {
     type: String,
     enum: ['male', 'female', 'unknown'],
   },
   color:  String,
-  photos: [String],
+  photos: [String], // Cloudinary HTTPS URLs
 
   // ── Location ───────────────────────────────────────────────
+  // NO defaults on type — prevents geo index crash on incomplete objects
   location: {
     type: {
       type: String,
       enum: ['Point'],
-      default: 'Point',
+      // ← no default
     },
     coordinates: {
       type: [Number], // [longitude, latitude]
-      required: true,
     },
   },
   address: String,
@@ -36,8 +36,6 @@ const petSchema = new mongoose.Schema({
   country: String,
 
   // ── Lost Mode fields ───────────────────────────────────────
-  // lastSeenAddress: human-readable address where pet was last seen
-  // lostAt: timestamp when the pet was marked as lost
   lastSeenAddress: String,
   lostAt: Date,
 
@@ -48,14 +46,14 @@ const petSchema = new mongoose.Schema({
     default: 'available',
   },
 
-  // ── Priority (for secret group feature) ───────────────────
+  // ── Priority ───────────────────────────────────────────────
   priority: {
     type: String,
     enum: ['low', 'medium', 'high', 'critical'],
     default: 'medium',
   },
 
-  // ── Secret group — only visible to premium users ──────────
+  // ── Secret group ───────────────────────────────────────────
   isSecretGroup: {
     type: Boolean,
     default: false,
@@ -79,26 +77,14 @@ const petSchema = new mongoose.Schema({
   dateLost:  Date,
   dateFound: Date,
 
-  // ── Timestamps ─────────────────────────────────────────────
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now,
-  },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now },
 });
 
 // ── Indexes ────────────────────────────────────────────────────
-
-// Geospatial index — required for $near queries (map + nearby pets)
-petSchema.index({ location: '2dsphere' });
-
-// Priority-based queries for secret group
+// sparse:true — skips pets with no location (prevents geo index crash)
+petSchema.index({ location: '2dsphere' }, { sparse: true });
 petSchema.index({ priority: 1, isSecretGroup: 1 });
-
-// Status filter queries
 petSchema.index({ status: 1 });
 
 // ── Auto-update timestamp ──────────────────────────────────────
