@@ -25,6 +25,9 @@ app.use(cors({
 }));
 app.use(express.static('public'));
 
+// Health Check
+app.get('/api/health', (req, res) => res.json({ ok: true }));
+
 // Stripe webhook needs raw body, others need JSON
 app.use((req, res, next) => {
   if (req.originalUrl === '/api/stripe/webhook') {
