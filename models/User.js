@@ -21,17 +21,17 @@ const userSchema = new mongoose.Schema({
   profileImage: String,
 
   // ── Location (needed for Alert Neighbors feature) ──────────
-  // Saved when user logs in and grants GPS permission.
-  // Format: GeoJSON Point { type: 'Point', coordinates: [lng, lat] }
+  // Only saved when user logs in and grants GPS permission.
+  // Intentionally NO defaults — an empty Point breaks the 2dsphere index.
   location: {
     type: {
       type: String,
       enum: ['Point'],
-      default: 'Point',
+      // ← NO default here — leaving it undefined prevents the geo index crash
     },
     coordinates: {
       type: [Number], // [longitude, latitude]
-      default: undefined,
+      // ← NO default here
     },
   },
 
@@ -68,7 +68,7 @@ const userSchema = new mongoose.Schema({
   subscriptionEndsAt: Date,
   stripeCustomerId: String,
   stripeSubscriptionId: String,
-  stripeSubscriptionStatus: String, // active, past_due, canceled, unpaid
+  stripeSubscriptionStatus: String,
 
   // ── Login tracking ─────────────────────────────────────────
   lastLoginAt: Date,
@@ -95,9 +95,8 @@ const userSchema = new mongoose.Schema({
   },
 });
 
-// ── Geospatial index for Alert Neighbors queries ───────────────
-// REQUIRED for $near queries to work in MongoDB.
-userSchema.index({ location: '2dsphere' });
+// ── Geospatial index — sparse:true means it skips docs with no location ──
+userSchema.index({ location: '2dsphere' }, { sparse: true });
 
 // ── Virtuals ───────────────────────────────────────────────────
 
@@ -134,9 +133,7 @@ userSchema.virtual('canAccessSecretGroup').get(function () {
 
 userSchema.pre('save', async function (next) {
   this.updatedAt = Date.now();
-
   if (!this.isModified('password')) return next();
-
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
@@ -161,22 +158,17 @@ userSchema.methods.recordLogin = async function () {
 userSchema.methods.startTrial = async function () {
   this.plan            = 'trial';
   this.trialStartedAt  = new Date();
-  this.trialEndsAt     = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+  this.trialEndsAt     = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   this.trialExtensions = 0;
   await this.save();
 };
 
 userSchema.methods.extendTrial = async function (days = 3) {
   const MAX_EXTENSIONS = 2;
-
   if (this.trialExtensions >= MAX_EXTENSIONS) {
     throw new Error('Maximum trial extensions reached (2).');
   }
-
-  if (!this.trialEndsAt) {
-    this.trialEndsAt = new Date();
-  }
-
+  if (!this.trialEndsAt) this.trialEndsAt = new Date();
   this.trialEndsAt     = new Date(this.trialEndsAt.getTime() + days * 24 * 60 * 60 * 1000);
   this.trialExtensions += 1;
   await this.save();
@@ -195,35 +187,22 @@ userSchema.methods.activateSubscription = async function ({
   subscriptionEndsAt,
   subscriptionStatus = 'active',
 }) {
-  this.plan                    = plan;
-  this.subscribedAt            = new Date();
-  this.subscriptionEndsAt      = subscriptionEndsAt;
+  this.plan                     = plan;
+  this.subscribedAt             = new Date();
+  this.subscriptionEndsAt       = subscriptionEndsAt;
   this.stripeSubscriptionStatus = subscriptionStatus;
-
-  if (stripeCustomerId)    this.stripeCustomerId    = stripeCustomerId;
+  if (stripeCustomerId)     this.stripeCustomerId     = stripeCustomerId;
   if (stripeSubscriptionId) this.stripeSubscriptionId = stripeSubscriptionId;
-
   await this.save();
 };
 
 userSchema.methods.updateSubscriptionStatus = async function (status, subscriptionEndsAt) {
   this.stripeSubscriptionStatus = status;
-  if (subscriptionEndsAt) {
-    this.subscriptionEndsAt = new Date(subscriptionEndsAt);
-  }
-
-  if (status === 'canceled' || status === 'unpaid') {
-    this.plan = 'free';
-  }
-
+  if (subscriptionEndsAt) this.subscriptionEndsAt = new Date(subscriptionEndsAt);
+  if (status === 'canceled' || status === 'unpaid') this.plan = 'free';
   await this.save();
 };
 
-// ── Save user's GPS location ───────────────────────────────────
-/**
- * Called from the auth route when user logs in and shares location.
- * coords = { latitude: number, longitude: number }
- */
 userSchema.methods.updateLocation = async function ({ latitude, longitude }) {
   if (!latitude || !longitude) return;
   this.location = {
