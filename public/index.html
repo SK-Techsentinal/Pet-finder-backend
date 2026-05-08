@@ -1784,5 +1784,88 @@ function showErr(el, msg) {
   }
 })();
 </script>
+  
+  <script>
+const API_URL = "https://pet-finder-backend-jkvi.onrender.com";
+
+document.getElementById('registerForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button');
+    btn.innerText = "Loading...";
+
+    const formData = {
+        fullName: e.target[0].value,
+        email: e.target[1].value,
+        password: e.target[2].value,
+        phone: e.target[3].value
+    };
+
+    try {
+        const response = await fetch(`${API_URL}/api/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+            alert("Registration Successful!");
+            window.location.href = "/login.html"; 
+        } else {
+            alert("Error: " + data.message);
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Server is not responding. Check Render logs.");
+    } finally {
+        btn.innerText = "Register";
+    }
+});
+</script>
+  
+  <script>
+  // This tells the button where your Render server lives
+  const API_URL = "https://pet-finder-backend-jkvi.onrender.com";
+
+  const regForm = document.getElementById('registerForm');
+
+  if (regForm) {
+    regForm.addEventListener('submit', async (e) => {
+      e.preventDefault(); // Stops the page from refreshing
+      
+      const submitBtn = e.target.querySelector('button');
+      submitBtn.innerText = "Connecting...";
+
+      // Gathering your data from the input fields
+      const fullName = e.target.querySelector('input[type="text"]').value;
+      const email = e.target.querySelector('input[type="email"]').value;
+      const password = e.target.querySelector('input[type="password"]').value;
+      const phone = e.target.querySelectorAll('input[type="text"]')[1].value;
+
+      try {
+        const response = await fetch(`${API_URL}/api/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fullName, email, password, phone })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          alert("Success! Account created.");
+          // You can hide the register form here if you want
+          regForm.innerHTML = "<h2>Welcome! Please Sign In now.</h2>";
+        } else {
+          alert("Error: " + (data.message || "Registration failed"));
+        }
+      } catch (err) {
+        console.error("Network Error:", err);
+        alert("Cannot connect to server. Check your internet or Render logs.");
+      } finally {
+        submitBtn.innerText = "Create Free Account";
+      }
+    });
+  }
+</script>
 </body>
 </html>
