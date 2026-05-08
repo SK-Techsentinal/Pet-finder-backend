@@ -6,35 +6,38 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 
 // Route Imports
-const authRoutes = require("./routes/auth");
-const trialRoutes = require("./routes/trial");
-const stripeRoutes = require("./routes/stripe");
-const petRoutes = require("./routes/pets");
+const authRoutes     = require("./routes/auth");
+const trialRoutes    = require("./routes/trial");
+const stripeRoutes   = require("./routes/stripe");
+const petRoutes      = require("./routes/pets");
 const feedbackRoutes = require("./routes/feedback");
-const trackerRoutes = require('./routes/tracker');
-const publicRoutes = require('./routes/public');
+const trackerRoutes  = require('./routes/tracker');
+const publicRoutes   = require('./routes/public');
 const { startTrialCronJobs } = require("./services/trialCron");
 
 const app = express();
+
+// ── Trust Proxy (fixes rate-limit X-Forwarded-For warning on Render) ──
+app.set('trust proxy', 1);
 
 // ── Security ──────────────────────────────────────────────────
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
-      defaultSrc:     ["'self'"],
-      scriptSrc:      ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://unpkg.com", "https://cdn.jsdelivr.net"],
-      scriptSrcAttr:  ["'unsafe-inline'"],   // ← allows onclick="..." handlers
-      styleSrc:       ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://unpkg.com"],
-      fontSrc:        ["'self'", "https://fonts.gstatic.com", "data:"],
-      imgSrc:         ["*", "data:", "blob:"],
-      connectSrc:     ["'self'", "https://pet-finder-backend-jkvi.onrender.com", "https://*.onrender.com"],
-      mediaSrc:       ["'self'", "blob:", "data:"],
-      workerSrc:      ["'self'", "blob:"],
-      objectSrc:      ["'none'"],
-      frameSrc:       ["'none'"],
+      defaultSrc:    ["'self'"],
+      scriptSrc:     ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://unpkg.com", "https://cdn.jsdelivr.net"],
+      scriptSrcAttr: ["'unsafe-inline'"],
+      styleSrc:      ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://unpkg.com"],
+      fontSrc:       ["'self'", "https://fonts.gstatic.com", "data:"],
+      imgSrc:        ["*", "data:", "blob:"],
+      connectSrc:    ["'self'", "https://pet-finder-backend-jkvi.onrender.com", "https://*.onrender.com"],
+      mediaSrc:      ["'self'", "blob:", "data:"],
+      workerSrc:     ["'self'", "blob:"],
+      objectSrc:     ["'none'"],
+      frameSrc:      ["'none'"],
     },
   },
-  crossOriginEmbedderPolicy: false, // needed for Leaflet maps to load tiles
+  crossOriginEmbedderPolicy: false,
 }));
 
 // ── CORS ──────────────────────────────────────────────────────
@@ -73,13 +76,13 @@ const globalLimiter = rateLimit({
 app.use(globalLimiter);
 
 // ── Routes ────────────────────────────────────────────────────
-app.use("/api/auth", authRoutes);
-app.use("/api/trial", trialRoutes);
-app.use("/api/stripe", stripeRoutes);
-app.use("/api/pets", petRoutes);
+app.use("/api/auth",     authRoutes);
+app.use("/api/trial",    trialRoutes);
+app.use("/api/stripe",   stripeRoutes);
+app.use("/api/pets",     petRoutes);
 app.use("/api/feedback", feedbackRoutes);
-app.use('/api/tracker', trackerRoutes);
-app.use('/public', publicRoutes);
+app.use('/api/tracker',  trackerRoutes);
+app.use('/public',       publicRoutes);
 
 // ── Error Handling ────────────────────────────────────────────
 app.use((req, res) => {
@@ -101,12 +104,8 @@ async function start() {
   try {
     await mongoose.connect(process.env.MONGO_URI);
     console.log("✅ MongoDB connected");
-
     startTrialCronJobs();
-
-    app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-    });
+    app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
   } catch (err) {
     console.error("❌ Database connection failed:", err);
     process.exit(1);
@@ -116,4 +115,3 @@ async function start() {
 start();
 
 module.exports = app;
-
