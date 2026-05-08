@@ -5,56 +5,40 @@ const User = require('../models/User');
 const { authenticate } = require('../middleware/authenticate');
 const { requireSecretGroupAccess } = require('../middleware/premium');
 const upload = require('../services/upload');
+const { uploadToCloudinary, deleteFromCloudinary } = require('../services/cloudinary');
 
 const router = express.Router();
 
 // All pet routes require authentication
 router.use(authenticate);
 
+// ── Helper: upload all files in req.files to Cloudinary ──────
+async function handlePhotoUploads(files) {
+  if (!files || files.length === 0) return [];
+  const urls = await Promise.all(
+    files.map(file => uploadToCloudinary(file.buffer, file.mimetype))
+  );
+  return urls;
+}
+
 // ── POST /api/pets ───────────────────────────────────────────
-/**
- * Report a new lost/found pet.
- * Frontend sends: name, species, breed, color, description,
- * address, location: { type, coordinates: [lng, lat] }
- */
 router.post('/', upload.array('photos', 5), async (req, res) => {
   try {
     const {
-      name,
-      species,
-      breed,
-      age,
-      gender,
-      color,
-      location,
-      address,
-      city,
-      country,
-      status,
-      priority,
-      isSecretGroup,
-      contactPhone,
-      contactEmail,
-      description,
-      dateLost,
-      dateFound,
-      lastSeenAddress,
+      name, species, breed, age, gender, color,
+      location, address, city, country, status, priority,
+      isSecretGroup, contactPhone, contactEmail, description,
+      dateLost, dateFound, lastSeenAddress,
     } = req.body;
 
-    // Validate location — must be GeoJSON Point
     const parsedLocation = typeof location === 'string' ? JSON.parse(location) : location;
-    if (
-      !parsedLocation ||
-      !parsedLocation.coordinates ||
-      parsedLocation.coordinates.length !== 2
-    ) {
+    if (!parsedLocation?.coordinates || parsedLocation.coordinates.length !== 2) {
       return res.status(400).json({
         success: false,
         message: 'Valid location coordinates required: { type: "Point", coordinates: [lng, lat] }',
       });
     }
 
-    // Only premium users can set isSecretGroup
     const user = await User.findById(req.user.sub);
     if (isSecretGroup && !user.isPremium) {
       return res.status(403).json({
@@ -63,36 +47,22 @@ router.post('/', upload.array('photos', 5), async (req, res) => {
       });
     }
 
-    // Handle photo uploads — convert buffer to base64
-    const photoData =
-      req.files && req.files.length > 0
-        ? req.files.map(
-            (file) => `data:${file.mimetype};base64,${file.buffer.toString('base64')}`
-          )
-        : [];
+    // Upload photos to Cloudinary — returns permanent HTTPS URLs
+    const photoUrls = await handlePhotoUploads(req.files);
 
     const pet = await Pet.create({
-      name,
-      species,
-      breed,
-      age,
-      gender,
-      color,
-      photos: photoData,
+      name, species, breed, age, gender, color,
+      photos: photoUrls,
       location: parsedLocation,
       address,
       lastSeenAddress: lastSeenAddress || address,
-      city,
-      country,
-      status: status || 'lost',
-      priority: priority || 'medium',
+      city, country,
+      status:        status        || 'lost',
+      priority:      priority      || 'medium',
       isSecretGroup: isSecretGroup || false,
-      reportedBy: req.user.sub,
-      contactPhone,
-      contactEmail,
-      description,
-      dateLost,
-      dateFound,
+      reportedBy:    req.user.sub,
+      contactPhone, contactEmail, description,
+      dateLost, dateFound,
     });
 
     res.status(201).json({ success: true, pet });
@@ -103,12 +73,9 @@ router.post('/', upload.array('photos', 5), async (req, res) => {
 });
 
 // ── GET /api/pets ────────────────────────────────────────────
-/**
- * Get all pets (excluding secret group pets for non-premium users).
- */
 router.get('/', async (req, res) => {
   try {
-    const user = await User.findById(req.user.sub);
+    const user  = await User.findById(req.user.sub);
     const query = user.canAccessSecretGroup ? {} : { isSecretGroup: false };
 
     if (req.query.status)   query.status   = req.query.status;
@@ -127,10 +94,6 @@ router.get('/', async (req, res) => {
 });
 
 // ── GET /api/pets/nearby ─────────────────────────────────────
-/**
- * Get pets near a GPS location (for map view).
- * Query params: lat, lng, maxDistance (meters, default 10km)
- */
 router.get('/nearby', async (req, res) => {
   try {
     const { lat, lng, maxDistance = 10000 } = req.query;
@@ -146,10 +109,7 @@ router.get('/nearby', async (req, res) => {
       ...query,
       location: {
         $near: {
-          $geometry: {
-            type: 'Point',
-            coordinates: [parseFloat(lng), parseFloat(lat)],
-          },
+          $geometry: { type: 'Point', coordinates: [parseFloat(lng), parseFloat(lat)] },
           $maxDistance: parseInt(maxDistance),
         },
       },
@@ -165,9 +125,6 @@ router.get('/nearby', async (req, res) => {
 });
 
 // ── GET /api/pets/secret-group ───────────────────────────────
-/**
- * Get secret group pets — high-priority alerts for premium users only.
- */
 router.get('/secret-group', requireSecretGroupAccess, async (req, res) => {
   try {
     const pets = await Pet.find({ isSecretGroup: true })
@@ -182,9 +139,6 @@ router.get('/secret-group', requireSecretGroupAccess, async (req, res) => {
 });
 
 // ── GET /api/pets/high-priority ──────────────────────────────
-/**
- * Get high-priority and critical pets (premium feature).
- */
 router.get('/high-priority', requireSecretGroupAccess, async (req, res) => {
   try {
     const pets = await Pet.find({ priority: { $in: ['high', 'critical'] } })
@@ -199,18 +153,12 @@ router.get('/high-priority', requireSecretGroupAccess, async (req, res) => {
 });
 
 // ── GET /api/pets/:id ────────────────────────────────────────
-/**
- * Get a specific pet by ID.
- */
 router.get('/:id', async (req, res) => {
   try {
     const pet = await Pet.findById(req.params.id).populate('reportedBy', 'name email phone');
 
-    if (!pet) {
-      return res.status(404).json({ success: false, message: 'Pet not found' });
-    }
+    if (!pet) return res.status(404).json({ success: false, message: 'Pet not found' });
 
-    // Secret group check
     if (pet.isSecretGroup) {
       const user = await User.findById(req.user.sub);
       if (!user.canAccessSecretGroup) {
@@ -229,16 +177,11 @@ router.get('/:id', async (req, res) => {
 });
 
 // ── PUT /api/pets/:id ────────────────────────────────────────
-/**
- * Update a pet report — only by the original reporter.
- */
 router.put('/:id', upload.array('photos', 5), async (req, res) => {
   try {
     const pet = await Pet.findById(req.params.id);
 
-    if (!pet) {
-      return res.status(404).json({ success: false, message: 'Pet not found' });
-    }
+    if (!pet) return res.status(404).json({ success: false, message: 'Pet not found' });
 
     if (pet.reportedBy.toString() !== req.user.sub) {
       return res.status(403).json({
@@ -258,14 +201,12 @@ router.put('/:id', upload.array('photos', 5), async (req, res) => {
     const updates = { ...req.body };
     delete updates.reportedBy;
     delete updates.createdAt;
-
     Object.assign(pet, updates);
 
+    // Upload new photos to Cloudinary and append to existing
     if (req.files && req.files.length > 0) {
-      const newPhotos = req.files.map(
-        (file) => `data:${file.mimetype};base64,${file.buffer.toString('base64')}`
-      );
-      pet.photos = [...(pet.photos || []), ...newPhotos];
+      const newUrls = await handlePhotoUploads(req.files);
+      pet.photos = [...(pet.photos || []), ...newUrls];
     }
 
     await pet.save();
@@ -277,22 +218,22 @@ router.put('/:id', upload.array('photos', 5), async (req, res) => {
 });
 
 // ── DELETE /api/pets/:id ──────────────────────────────────────
-/**
- * Delete a pet report — only by the original reporter.
- */
 router.delete('/:id', async (req, res) => {
   try {
     const pet = await Pet.findById(req.params.id);
 
-    if (!pet) {
-      return res.status(404).json({ success: false, message: 'Pet not found' });
-    }
+    if (!pet) return res.status(404).json({ success: false, message: 'Pet not found' });
 
     if (pet.reportedBy.toString() !== req.user.sub) {
       return res.status(403).json({
         success: false,
         message: 'You can only delete your own pet reports',
       });
+    }
+
+    // Delete photos from Cloudinary so you don't waste storage
+    if (pet.photos && pet.photos.length > 0) {
+      await Promise.all(pet.photos.map(url => deleteFromCloudinary(url)));
     }
 
     await pet.deleteOne();
@@ -304,10 +245,6 @@ router.delete('/:id', async (req, res) => {
 });
 
 // ── PATCH /api/pets/:id/lost ──────────────────────────────────
-/**
- * Mark a pet as Lost and save its last known GPS location.
- * Called by the frontend "Report Lost" button.
- */
 router.patch('/:id/lost', async (req, res) => {
   try {
     const { latitude, longitude, lastSeenAddress } = req.body;
@@ -318,21 +255,17 @@ router.patch('/:id/lost', async (req, res) => {
         status: 'lost',
         lastSeenAddress: lastSeenAddress || '',
         lostAt: new Date(),
-        ...(latitude && longitude
-          ? {
-              location: {
-                type: 'Point',
-                coordinates: [parseFloat(longitude), parseFloat(latitude)],
-              },
-            }
-          : {}),
+        ...(latitude && longitude ? {
+          location: {
+            type: 'Point',
+            coordinates: [parseFloat(longitude), parseFloat(latitude)],
+          },
+        } : {}),
       },
       { new: true }
     );
 
-    if (!pet) {
-      return res.status(404).json({ success: false, message: 'Pet not found' });
-    }
+    if (!pet) return res.status(404).json({ success: false, message: 'Pet not found' });
 
     res.json({ success: true, pet });
   } catch (err) {
@@ -342,18 +275,13 @@ router.patch('/:id/lost', async (req, res) => {
 });
 
 // ── POST /api/pets/:id/alert-neighbors ───────────────────────
-/**
- * Send email alerts to all users within 5 miles of the pet's location.
- * Requires users to have their location saved in the database.
- */
 router.post('/:id/alert-neighbors', async (req, res) => {
   try {
     const { latitude, longitude, radiusMiles = 5, petName, publicUrl } = req.body;
     const radiusMeters = radiusMiles * 1609.34;
 
-    // Find all nearby users who have saved their location
     const nearbyUsers = await User.find({
-      _id: { $ne: req.user.sub }, // exclude the pet owner
+      _id: { $ne: req.user.sub },
       location: {
         $near: {
           $geometry: {
@@ -365,20 +293,15 @@ router.post('/:id/alert-neighbors', async (req, res) => {
       },
     }).select('email name');
 
-    // Send alert email to each nearby user
-    const emailPromises = nearbyUsers.map((user) =>
-      sendAlertEmail(user.email, petName, publicUrl).catch((err) =>
+    const emailPromises = nearbyUsers.map(user =>
+      sendAlertEmail(user.email, petName, publicUrl).catch(err =>
         console.error(`Failed to send alert to ${user.email}:`, err)
       )
     );
     await Promise.all(emailPromises);
 
     console.log(`[alert-neighbors] Notified ${nearbyUsers.length} user(s) about ${petName}`);
-    res.json({
-      success: true,
-      message: 'Alerts sent',
-      usersNotified: nearbyUsers.length,
-    });
+    res.json({ success: true, message: 'Alerts sent', usersNotified: nearbyUsers.length });
   } catch (err) {
     console.error('Alert neighbors error:', err);
     res.status(500).json({ success: false, message: err.message });
