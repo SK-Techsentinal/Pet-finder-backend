@@ -1,24 +1,16 @@
 const multer = require('multer');
-const path = require('path');
 
-// Configure multer for memory storage (for now)
-// In production, you'd use cloud storage like AWS S3 or Cloudinary
+// Store files in memory so we can pass the buffer to Cloudinary
 const storage = multer.memoryStorage();
 
 const upload = multer({
   storage,
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
-  },
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max per photo
   fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|gif/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-
-    if (extname && mimetype) {
-      return cb(null, true);
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
     } else {
-      cb(new Error('Only image files are allowed (jpeg, jpg, png, gif)'));
+      cb(new Error('Only image files are allowed'), false);
     }
   },
 });
