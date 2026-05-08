@@ -17,26 +17,34 @@ const { startTrialCronJobs } = require("./services/trialCron");
 
 const app = express();
 
-// ── Allowed Origins ───────────────────────────────────────────
-// Add any frontend URLs here (Render, localhost, custom domain)
-const ALLOWED_ORIGINS = [
-  process.env.FRONTEND_URL,                      // set this in Render environment variables
-  'http://localhost:3000',
-  'http://localhost:5500',
-  'http://127.0.0.1:5500',
-].filter(Boolean); // removes undefined if FRONTEND_URL is not set
-
-// ── Middleware ────────────────────────────────────────────────
-app.use(helmet());
-app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, curl, Postman)
-    if (!origin) return callback(null, true);
-    if (ALLOWED_ORIGINS.includes(origin)) {
-      return callback(null, true);
-    }
-    return callback(new Error(`CORS blocked: ${origin}`));
+// ── Security ──────────────────────────────────────────────────
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc:     ["'self'"],
+      scriptSrc:      ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://unpkg.com", "https://cdn.jsdelivr.net"],
+      scriptSrcAttr:  ["'unsafe-inline'"],   // ← allows onclick="..." handlers
+      styleSrc:       ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://unpkg.com"],
+      fontSrc:        ["'self'", "https://fonts.gstatic.com", "data:"],
+      imgSrc:         ["*", "data:", "blob:"],
+      connectSrc:     ["'self'", "https://pet-finder-backend-jkvi.onrender.com", "https://*.onrender.com"],
+      mediaSrc:       ["'self'", "blob:", "data:"],
+      workerSrc:      ["'self'", "blob:"],
+      objectSrc:      ["'none'"],
+      frameSrc:       ["'none'"],
+    },
   },
+  crossOriginEmbedderPolicy: false, // needed for Leaflet maps to load tiles
+}));
+
+// ── CORS ──────────────────────────────────────────────────────
+app.use(cors({
+  origin: [
+    'https://pet-finder-backend-jkvi.onrender.com',
+    'http://localhost:3000',
+    'http://localhost:5500',
+    'http://127.0.0.1:5500',
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
