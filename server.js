@@ -12,23 +12,42 @@ const stripeRoutes = require("./routes/stripe");
 const petRoutes = require("./routes/pets");
 const feedbackRoutes = require("./routes/feedback");
 const trackerRoutes = require('./routes/tracker');
-const publicRoutes = require('./routes/public'); // Added public route
+const publicRoutes = require('./routes/public');
 const { startTrialCronJobs } = require("./services/trialCron");
 
 const app = express();
 
+// ── Allowed Origins ───────────────────────────────────────────
+// Add any frontend URLs here (Render, localhost, custom domain)
+const ALLOWED_ORIGINS = [
+  process.env.FRONTEND_URL,                      // set this in Render environment variables
+  'http://localhost:3000',
+  'http://localhost:5500',
+  'http://127.0.0.1:5500',
+].filter(Boolean); // removes undefined if FRONTEND_URL is not set
+
 // ── Middleware ────────────────────────────────────────────────
 app.use(helmet());
 app.use(cors({
-  origin: "*", 
-  credentials: true
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`CORS blocked: ${origin}`));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+
 app.use(express.static('public'));
 
-// Health Check
-app.get('/api/health', (req, res) => res.json({ ok: true }));
+// ── Health Check ──────────────────────────────────────────────
+app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date() }));
 
-// Stripe webhook needs raw body, others need JSON
+// Stripe webhook needs raw body, all others need JSON
 app.use((req, res, next) => {
   if (req.originalUrl === '/api/stripe/webhook') {
     next();
@@ -53,8 +72,6 @@ app.use("/api/pets", petRoutes);
 app.use("/api/feedback", feedbackRoutes);
 app.use('/api/tracker', trackerRoutes);
 app.use('/public', publicRoutes);
-
-app.get("/api/health", (req, res) => res.json({ status: "ok", ts: new Date() }));
 
 // ── Error Handling ────────────────────────────────────────────
 app.use((req, res) => {
@@ -90,4 +107,5 @@ async function start() {
 
 start();
 
-module.exports = app; // for testing
+module.exports = app;
+
