@@ -29,6 +29,15 @@ const feedbackSchema = new mongoose.Schema({
     enum: ['low', 'medium', 'high'],
     default: 'medium',
   },
+  // ── Admin reply fields (new) ───────────────────────────────
+  adminReply: {
+    type: String,
+    default: null,
+  },
+  adminRepliedAt: {
+    type: Date,
+    default: null,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
@@ -45,3 +54,4 @@ feedbackSchema.pre('save', function(next) {
 });
 
 module.exports = mongoose.model('Feedback', feedbackSchema);
+
