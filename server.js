@@ -14,6 +14,7 @@ const feedbackRoutes = require("./routes/feedback");
 const trackerRoutes  = require('./routes/tracker');
 const publicRoutes   = require('./routes/public');
 const { startTrialCronJobs } = require("./services/trialCron");
+const adminRoutes = require('./routes/admin');
 
 const app = express();
 
