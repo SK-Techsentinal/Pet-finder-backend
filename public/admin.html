@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<title>PawFind Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --g1:#0A0908;--g2:#111009;--g3:#1C1A14;--g4:#252219;--g5:#2E2A1F;
+  --gold:#D4A843;--gold-l:#F0C05A;--gold-d:#A07C28;--gold-glow:rgba(212,168,67,0.2);
+  --red:#E53E3E;--green:#38A169;--blue:#3182CE;--purple:#805AD5;--orange:#E07B39;
+  --txt:#F7F3E8;--txt2:rgba(247,243,232,0.6);--txt3:rgba(247,243,232,0.3);
+  --border:rgba(247,243,232,0.08);--border2:rgba(247,243,232,0.14);
+  --font-h:'Syne',sans-serif;--font-b:'Outfit',sans-serif;
+  --r:14px;--transition:all 0.2s ease;
+}
+html,body{height:100%;background:var(--g1);color:var(--txt);font-family:var(--font-b);font-size:14px}
+button{font-family:var(--font-b);cursor:pointer;border:none;outline:none;background:none}
+input,textarea,select{font-family:var(--font-b);outline:none;border:none;background:none;color:var(--txt)}
+::-webkit-scrollbar{width:4px;background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:99px}
+.hidden{display:none!important}
+.spinner{width:18px;height:18px;border:2px solid var(--border2);border-top-color:var(--gold);
+  border-radius:50%;animation:spin .7s linear infinite;display:inline-block;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── LOGIN ── */
+#login-screen{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse 80% 60% at 20% 0%,rgba(212,168,67,0.08),transparent),var(--g1);
+  padding:24px;
+}
+.login-box{
+  background:var(--g2);border:1px solid var(--border2);border-radius:24px;
+  padding:48px 40px;width:100%;max-width:400px;
+  box-shadow:0 40px 100px rgba(0,0,0,0.6);
+}
+.login-logo{font-family:var(--font-h);font-size:28px;font-weight:800;text-align:center;
+  background:linear-gradient(135deg,var(--gold-d),var(--gold),var(--gold-l));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  margin-bottom:4px}
+.login-sub{text-align:center;color:var(--txt3);font-size:12px;margin-bottom:32px}
+.login-label{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--txt3);margin-bottom:8px;display:block}
+.login-input{
+  width:100%;background:var(--g3);border:1px solid var(--border2);border-radius:var(--r);
+  padding:14px 16px;color:var(--txt);font-size:15px;margin-bottom:20px;
+  transition:border-color .2s;
+}
+.login-input:focus{border-color:var(--gold)}
+.login-btn{
+  width:100%;background:linear-gradient(135deg,var(--gold-d),var(--gold));
+  color:#1A1200;font-weight:700;font-size:15px;padding:14px;border-radius:var(--r);
+  font-family:var(--font-h);cursor:pointer;transition:opacity .2s;
+}
+.login-btn:hover{opacity:.9}
+.login-err{background:rgba(229,62,62,0.12);border:1px solid rgba(229,62,62,0.3);
+  border-radius:10px;padding:10px 14px;color:#FC8181;font-size:13px;
+  margin-bottom:16px;display:none}
+
+/* ── ADMIN LAYOUT ── */
+#admin-panel{display:flex;min-height:100vh}
+
+/* Sidebar */
+.sidebar{
+  width:240px;flex-shrink:0;background:var(--g2);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;position:fixed;left:0;top:0;bottom:0;z-index:100;
+  padding:24px 0;
+}
+.sidebar-logo{padding:0 20px 24px;border-bottom:1px solid var(--border)}
+.sidebar-logo-text{font-family:var(--font-h);font-size:20px;font-weight:800;
+  background:linear-gradient(135deg,var(--gold-d),var(--gold));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.sidebar-role{font-size:10px;color:var(--txt3);letter-spacing:.08em;text-transform:uppercase;margin-top:2px}
+.nav-section{padding:16px 12px 8px;font-size:10px;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--txt3)}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 20px;cursor:pointer;
+  border-radius:0;transition:var(--transition);color:var(--txt2);font-size:13px;font-weight:500;
+  border-left:2px solid transparent;position:relative}
+.nav-item:hover{background:var(--g3);color:var(--txt)}
+.nav-item.active{background:rgba(212,168,67,0.08);color:var(--gold);border-left-color:var(--gold)}
+.nav-icon{font-size:16px;width:20px;text-align:center}
+.nav-badge{margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:700;
+  padding:2px 7px;border-radius:99px;min-width:18px;text-align:center}
+.sidebar-bottom{margin-top:auto;padding:16px 12px;border-top:1px solid var(--border)}
+.logout-btn{width:100%;text-align:left;padding:10px 8px;border-radius:10px;
+  color:var(--txt3);font-size:13px;display:flex;align-items:center;gap:8px;
+  transition:var(--transition)}
+.logout-btn:hover{background:rgba(229,62,62,0.08);color:var(--red)}
+
+/* Main content */
+.main{margin-left:240px;flex:1;padding:32px;min-height:100vh}
+
+/* Tab panels */
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+
+/* Page header */
+.page-header{margin-bottom:28px}
+.page-title{font-family:var(--font-h);font-size:26px;font-weight:800;margin-bottom:4px}
+.page-sub{color:var(--txt3);font-size:13px}
+
+/* Stats row */
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:28px}
+.stat-card{background:var(--g2);border:1px solid var(--border2);border-radius:16px;padding:20px}
+.stat-label{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--txt3);margin-bottom:8px}
+.stat-value{font-family:var(--font-h);font-size:32px;font-weight:800}
+.stat-value.gold{color:var(--gold)}
+.stat-value.red{color:var(--red)}
+.stat-value.green{color:var(--green)}
+.stat-value.blue{color:var(--blue)}
+.stat-value.purple{color:var(--purple)}
+
+/* Filter bar */
+.filter-bar{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;align-items:center}
+.filter-btn{padding:7px 16px;border-radius:99px;font-size:12px;font-weight:600;
+  border:1px solid var(--border2);color:var(--txt2);transition:var(--transition);cursor:pointer}
+.filter-btn:hover{border-color:var(--gold);color:var(--gold)}
+.filter-btn.active{background:var(--gold);color:#1A1200;border-color:var(--gold)}
+
+/* Table */
+.table-wrap{background:var(--g2);border:1px solid var(--border2);border-radius:16px;overflow:hidden}
+.table-head{display:grid;padding:12px 20px;background:var(--g3);
+  font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--txt3)}
+.table-row{padding:16px 20px;border-top:1px solid var(--border);
+  transition:background .15s;cursor:pointer}
+.table-row:hover{background:var(--g3)}
+.table-row:first-child{border-top:none}
+
+/* Feedback card */
+.fb-card{background:var(--g2);border:1px solid var(--border2);border-radius:16px;
+  margin-bottom:16px;overflow:hidden;transition:border-color .2s}
+.fb-card:hover{border-color:var(--border2)}
+.fb-card.pending{border-left:3px solid var(--gold)}
+.fb-card.reviewed{border-left:3px solid var(--blue)}
+.fb-card.in_progress{border-left:3px solid var(--purple)}
+.fb-card.completed{border-left:3px solid var(--green)}
+.fb-head{padding:16px 20px;display:flex;align-items:flex-start;gap:12px;cursor:pointer}
+.fb-avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--gold-d),var(--gold));
+  display:flex;align-items:center;justify-content:center;font-family:var(--font-h);
+  font-size:15px;font-weight:800;color:#1A1200;flex-shrink:0}
+.fb-meta{flex:1;min-width:0}
+.fb-user{font-weight:600;font-size:14px}
+.fb-email{font-size:11px;color:var(--txt3);margin-top:1px}
+.fb-subject{font-weight:600;font-size:13px;margin-top:6px;color:var(--txt)}
+.fb-preview{font-size:12px;color:var(--txt2);margin-top:3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:400px}
+.fb-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0}
+.fb-date{font-size:11px;color:var(--txt3)}
+.fb-body{padding:0 20px 20px;display:none}
+.fb-body.open{display:block}
+.fb-message{background:var(--g3);border-radius:10px;padding:14px;font-size:13px;
+  color:var(--txt2);line-height:1.7;margin-bottom:16px}
+.fb-reply-box{background:var(--g3);border:1px solid var(--border2);border-radius:10px;
+  padding:12px 14px;font-size:13px;line-height:1.6;width:100%;resize:vertical;
+  min-height:100px;color:var(--txt);margin-bottom:12px;transition:border-color .2s}
+.fb-reply-box:focus{border-color:var(--gold)}
+.fb-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.fb-existing-reply{background:rgba(56,161,105,0.08);border:1px solid rgba(56,161,105,0.2);
+  border-radius:10px;padding:12px 14px;font-size:13px;color:#68D391;line-height:1.6;margin-bottom:12px}
+.fb-existing-reply strong{display:block;font-size:11px;text-transform:uppercase;
+  letter-spacing:.06em;margin-bottom:4px;color:#48BB78}
+
+/* Badges */
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:99px;
+  font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.badge-pending{background:rgba(212,168,67,0.15);color:var(--gold);border:1px solid rgba(212,168,67,0.3)}
+.badge-reviewed{background:rgba(49,130,206,0.15);color:#63B3ED;border:1px solid rgba(49,130,206,0.3)}
+.badge-in_progress{background:rgba(128,90,213,0.15);color:#B794F4;border:1px solid rgba(128,90,213,0.3)}
+.badge-completed{background:rgba(56,161,105,0.15);color:#68D391;border:1px solid rgba(56,161,105,0.3)}
+.badge-high{background:rgba(229,62,62,0.15);color:#FC8181;border:1px solid rgba(229,62,62,0.25)}
+.badge-medium{background:rgba(212,168,67,0.12);color:var(--gold);border:1px solid rgba(212,168,67,0.2)}
+.badge-low{background:rgba(56,161,105,0.1);color:#68D391;border:1px solid rgba(56,161,105,0.2)}
+.badge-trial{background:rgba(212,168,67,0.12);color:var(--gold)}
+.badge-free{background:rgba(247,243,232,0.08);color:var(--txt2)}
+.badge-pro{background:rgba(128,90,213,0.15);color:#B794F4}
+.badge-basic{background:rgba(49,130,206,0.15);color:#63B3ED}
+.badge-bug{background:rgba(229,62,62,0.15);color:#FC8181}
+.badge-feature{background:rgba(49,130,206,0.15);color:#63B3ED}
+.badge-suggestion{background:rgba(128,90,213,0.15);color:#B794F4}
+.badge-general{background:rgba(247,243,232,0.08);color:var(--txt2)}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:10px;
+  font-size:13px;font-weight:600;cursor:pointer;transition:var(--transition);border:1px solid transparent}
+.btn-gold{background:linear-gradient(135deg,var(--gold-d),var(--gold));color:#1A1200;border-color:transparent}
+.btn-gold:hover{opacity:.9}
+.btn-outline{background:transparent;color:var(--txt2);border-color:var(--border2)}
+.btn-outline:hover{border-color:var(--gold);color:var(--gold)}
+.btn-green{background:rgba(56,161,105,0.15);color:#68D391;border-color:rgba(56,161,105,0.3)}
+.btn-green:hover{background:rgba(56,161,105,0.25)}
+.btn-red{background:rgba(229,62,62,0.1);color:#FC8181;border-color:rgba(229,62,62,0.25)}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* User row */
+.user-row{display:grid;grid-template-columns:1fr 1fr 100px 100px 80px;
+  gap:12px;align-items:center;padding:14px 20px;border-top:1px solid var(--border)}
+.user-row:first-child{border-top:none}
+.user-name{font-weight:600;font-size:13px}
+.user-email{font-size:11px;color:var(--txt3);margin-top:2px}
+.user-login{font-size:11px;color:var(--txt3)}
+
+/* Pet row */
+.pet-row{display:grid;grid-template-columns:50px 1fr 80px 100px 100px;
+  gap:12px;align-items:center;padding:14px 20px;border-top:1px solid var(--border)}
+.pet-row:first-child{border-top:none}
+.pet-photo{width:44px;height:44px;border-radius:10px;object-fit:cover;background:var(--g4)}
+.pet-photo-placeholder{width:44px;height:44px;border-radius:10px;background:var(--g4);
+  display:flex;align-items:center;justify-content:center;font-size:20px}
+
+/* Toast */
+#toast{position:fixed;bottom:24px;right:24px;z-index:9999;
+  background:var(--g3);border:1px solid var(--border2);border-radius:12px;
+  padding:12px 20px;font-size:13px;font-weight:500;
+  box-shadow:0 8px 32px rgba(0,0,0,0.5);transform:translateY(20px);
+  opacity:0;transition:all .3s ease;pointer-events:none;max-width:320px}
+#toast.show{transform:translateY(0);opacity:1}
+#toast.ok{border-color:rgba(56,161,105,0.4);color:#68D391}
+#toast.bad{border-color:rgba(229,62,62,0.4);color:#FC8181}
+
+/* Empty state */
+.empty{text-align:center;padding:60px 20px;color:var(--txt3)}
+.empty-icon{font-size:40px;margin-bottom:12px}
+.empty-text{font-size:14px}
+
+/* Loading */
+.loading{text-align:center;padding:40px;color:var(--txt3)}
+
+@media(max-width:768px){
+  .sidebar{width:60px}
+  .sidebar-logo-text,.sidebar-role,.nav-item span,.nav-section,.sidebar-bottom .logout-btn span{display:none}
+  .nav-item{padding:14px;justify-content:center}
+  .main{margin-left:60px;padding:20px 16px}
+  .user-row{grid-template-columns:1fr 80px}
+  .pet-row{grid-template-columns:40px 1fr 80px}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">🐾 PawFind</div>
+    <div class="login-sub">Administration Panel · Secure Access</div>
+    <div class="login-err" id="login-err"></div>
+    <label class="login-label">Admin Password</label>
+    <input class="login-input" type="password" id="admin-pass" placeholder="Enter admin password"
+      onkeydown="if(event.key==='Enter')doLogin()"/>
+    <button class="login-btn" onclick="doLogin()" id="login-btn">Sign In to Admin Panel</button>
+  </div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div id="admin-panel" class="hidden">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-text">🐾 PawFind</div>
+      <div class="sidebar-role">Admin Panel</div>
+    </div>
+
+    <div class="nav-section">Dashboard</div>
+    <div class="nav-item active" onclick="showTab('dashboard',this)">
+      <span class="nav-icon">📊</span><span>Overview</span>
+    </div>
+
+    <div class="nav-section">Management</div>
+    <div class="nav-item" onclick="showTab('feedback',this)">
+      <span class="nav-icon">💬</span><span>Feedback</span>
+      <span class="nav-badge hidden" id="pending-badge">0</span>
+    </div>
+    <div class="nav-item" onclick="showTab('users',this)">
+      <span class="nav-icon">👥</span><span>Users</span>
+    </div>
+    <div class="nav-item" onclick="showTab('pets',this)">
+      <span class="nav-icon">🐾</span><span>Pet Reports</span>
+    </div>
+
+    <div class="sidebar-bottom">
+      <button class="logout-btn" onclick="doLogout()">
+        <span>🚪</span><span>Sign Out</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- DASHBOARD TAB -->
+    <div class="tab-panel active" id="tab-dashboard">
+      <div class="page-header">
+        <div class="page-title">Good day, Admin 👋</div>
+        <div class="page-sub">Here's what's happening with PawFind today</div>
+      </div>
+      <div class="stats-row" id="stats-row">
+        <div class="stat-card"><div class="stat-label">Total Users</div><div class="stat-value gold" id="s-users">—</div></div>
+        <div class="stat-card"><div class="stat-label">Pet Reports</div><div class="stat-value blue" id="s-pets">—</div></div>
+        <div class="stat-card"><div class="stat-label">Total Feedback</div><div class="stat-value purple" id="s-feedback">—</div></div>
+        <div class="stat-card"><div class="stat-label">Pending Replies</div><div class="stat-value red" id="s-pending">—</div></div>
+        <div class="stat-card"><div class="stat-label">Lost Pets</div><div class="stat-value red" id="s-lost">—</div></div>
+        <div class="stat-card"><div class="stat-label">Trial Users</div><div class="stat-value gold" id="s-trial">—</div></div>
+      </div>
+      <div style="background:var(--g2);border:1px solid var(--border2);border-radius:16px;padding:24px">
+        <div style="font-family:var(--font-h);font-size:16px;font-weight:700;margin-bottom:8px">Quick Actions</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
+          <button class="btn btn-gold" onclick="showTab('feedback',document.querySelector('.nav-item:nth-child(5)'))">💬 View Feedback</button>
+          <button class="btn btn-outline" onclick="showTab('users',document.querySelector('.nav-item:nth-child(6)'))">👥 Manage Users</button>
+          <button class="btn btn-outline" onclick="showTab('pets',document.querySelector('.nav-item:nth-child(7)'))">🐾 View Pets</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- FEEDBACK TAB -->
+    <div class="tab-panel" id="tab-feedback">
+      <div class="page-header">
+        <div class="page-title">User Feedback</div>
+        <div class="page-sub">Read messages and reply directly to users' emails</div>
+      </div>
+      <div class="filter-bar">
+        <button class="filter-btn active" onclick="filterFeedback('all',this)">All</button>
+        <button class="filter-btn" onclick="filterFeedback('pending',this)">⏳ Pending</button>
+        <button class="filter-btn" onclick="filterFeedback('reviewed',this)">👁 Reviewed</button>
+        <button class="filter-btn" onclick="filterFeedback('in_progress',this)">⚙️ In Progress</button>
+        <button class="filter-btn" onclick="filterFeedback('completed',this)">✅ Completed</button>
+      </div>
+      <div id="feedback-list"><div class="loading"><span class="spinner"></span> Loading feedback...</div></div>
+    </div>
+
+    <!-- USERS TAB -->
+    <div class="tab-panel" id="tab-users">
+      <div class="page-header">
+        <div class="page-title">Registered Users</div>
+        <div class="page-sub">All accounts and subscription status</div>
+      </div>
+      <div class="table-wrap">
+        <div class="table-head" style="grid-template-columns:1fr 1fr 100px 100px 80px">
+          <span>User</span><span>Email</span><span>Plan</span><span>Last Login</span><span>Logins</span>
+        </div>
+        <div id="users-list"><div class="loading"><span class="spinner"></span> Loading users...</div></div>
+      </div>
+    </div>
+
+    <!-- PETS TAB -->
+    <div class="tab-panel" id="tab-pets">
+      <div class="page-header">
+        <div class="page-title">Pet Reports</div>
+        <div class="page-sub">All reported pets across the platform</div>
+      </div>
+      <div class="table-wrap">
+        <div class="table-head" style="grid-template-columns:50px 1fr 80px 100px 100px">
+          <span></span><span>Pet</span><span>Status</span><span>Reported By</span><span>Date</span>
+        </div>
+        <div id="pets-list"><div class="loading"><span class="spinner"></span> Loading pets...</div></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+const API = '';
+let _adminToken = sessionStorage.getItem('pawfind_admin_token');
+let _allFeedback = [];
+let _currentFilter = 'all';
+
+// ── Boot ──────────────────────────────────────────────────────
+(function boot() {
+  if (_adminToken) {
+    showPanel();
+  }
+})();
+
+// ── Login ─────────────────────────────────────────────────────
+async function doLogin() {
+  const pass = document.getElementById('admin-pass').value;
+  const btn  = document.getElementById('login-btn');
+  const err  = document.getElementById('login-err');
+  err.style.display = 'none';
+  if (!pass) return;
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
+  try {
+    const res  = await fetch(API + '/api/admin/login', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ password: pass }),
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.message);
+    _adminToken = data.token;
+    sessionStorage.setItem('pawfind_admin_token', _adminToken);
+    showPanel();
+  } catch(e) {
+    err.textContent = e.message || 'Incorrect password';
+    err.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Sign In to Admin Panel';
+  }
+}
+
+function doLogout() {
+  sessionStorage.removeItem('pawfind_admin_token');
+  _adminToken = null;
+  document.getElementById('admin-panel').classList.add('hidden');
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('admin-pass').value = '';
+}
+
+// ── Show admin panel ──────────────────────────────────────────
+function showPanel() {
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('admin-panel').classList.remove('hidden');
+  loadStats();
+  loadFeedback();
+  loadUsers();
+  loadPets();
+}
+
+// ── Admin API helper ──────────────────────────────────────────
+async function adminApi(path, method='GET', body=null) {
+  const opts = {
+    method,
+    headers: { 'Content-Type':'application/json', 'x-admin-token': _adminToken },
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const res  = await fetch(API + path, opts);
+  const data = await res.json();
+  if (res.status === 401) { doLogout(); throw new Error('Session expired'); }
+  if (!data.success) throw new Error(data.message);
+  return data;
+}
+
+// ── Tab switching ─────────────────────────────────────────────
+function showTab(name, el) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  if (el) el.classList.add('active');
+}
+
+// ── Stats ─────────────────────────────────────────────────────
+async function loadStats() {
+  try {
+    const { stats } = await adminApi('/api/admin/stats');
+    document.getElementById('s-users').textContent    = stats.totalUsers;
+    document.getElementById('s-pets').textContent     = stats.totalPets;
+    document.getElementById('s-feedback').textContent = stats.totalFeedback;
+    document.getElementById('s-pending').textContent  = stats.pendingFeedback;
+    document.getElementById('s-lost').textContent     = stats.lostPets;
+    document.getElementById('s-trial').textContent    = stats.trialUsers;
+    // Update sidebar badge
+    if (stats.pendingFeedback > 0) {
+      const badge = document.getElementById('pending-badge');
+      badge.textContent = stats.pendingFeedback;
+      badge.classList.remove('hidden');
+    }
+  } catch(e) { console.error('Stats error:', e); }
+}
+
+// ── Feedback ──────────────────────────────────────────────────
+async function loadFeedback() {
+  try {
+    const { feedback } = await adminApi('/api/admin/feedback');
+    _allFeedback = feedback;
+    renderFeedback(_allFeedback);
+  } catch(e) {
+    document.getElementById('feedback-list').innerHTML =
+      '<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-text">Failed to load feedback</div></div>';
+  }
+}
+
+function filterFeedback(status, btn) {
+  _currentFilter = status;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const filtered = status === 'all' ? _allFeedback : _allFeedback.filter(f => f.status === status);
+  renderFeedback(filtered);
+}
+
+function renderFeedback(list) {
+  const el = document.getElementById('feedback-list');
+  if (!list.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">💬</div><div class="empty-text">No feedback found</div></div>';
+    return;
+  }
+  el.innerHTML = list.map(f => {
+    const initial  = (f.user?.name || 'U')[0].toUpperCase();
+    const typeMap  = { feature_request:'badge-feature', bug_report:'badge-bug', suggestion:'badge-suggestion', general_feedback:'badge-general' };
+    const typeLabel= { feature_request:'Feature', bug_report:'Bug', suggestion:'Suggestion', general_feedback:'General' };
+    const hasReply = f.adminReply;
+    return `
+    <div class="fb-card ${f.status}" id="fb-${f._id}">
+      <div class="fb-head" onclick="toggleFeedback('${f._id}')">
+        <div class="fb-avatar">${initial}</div>
+        <div class="fb-meta">
+          <div class="fb-user">${f.user?.name || 'Unknown'}</div>
+          <div class="fb-email">${f.user?.email || ''}</div>
+          <div class="fb-subject">${f.subject}</div>
+          <div class="fb-preview">${f.message}</div>
+        </div>
+        <div class="fb-right">
+          <div class="fb-date">${fmtDate(f.createdAt)}</div>
+          <span class="badge badge-${f.status}">${f.status.replace('_',' ')}</span>
+          <span class="badge badge-${f.priority}">${f.priority}</span>
+          <span class="badge ${typeMap[f.type]||''}">${typeLabel[f.type]||f.type}</span>
+        </div>
+      </div>
+      <div class="fb-body" id="fbb-${f._id}">
+        <div class="fb-message">${f.message}</div>
+        ${hasReply ? `
+          <div class="fb-existing-reply">
+            <strong>✅ Your reply sent ${fmtDate(f.adminRepliedAt)}</strong>
+            ${f.adminReply}
+          </div>
+        ` : ''}
+        <textarea class="fb-reply-box" id="reply-${f._id}"
+          placeholder="Type your reply here — it will be emailed directly to ${f.user?.name || 'the user'}...">${hasReply ? f.adminReply : ''}</textarea>
+        <div class="fb-actions">
+          <button class="btn btn-gold btn-sm" onclick="sendReply('${f._id}','${f.user?.email}')">
+            📧 Send Reply Email
+          </button>
+          <button class="btn btn-green btn-sm" onclick="setStatus('${f._id}','reviewed')">Mark Reviewed</button>
+          <button class="btn btn-outline btn-sm" onclick="setStatus('${f._id}','in_progress')">In Progress</button>
+          <button class="btn btn-outline btn-sm" onclick="setStatus('${f._id}','completed')">✅ Completed</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleFeedback(id) {
+  const body = document.getElementById('fbb-' + id);
+  body.classList.toggle('open');
+}
+
+async function sendReply(id, email) {
+  const reply = document.getElementById('reply-' + id).value.trim();
+  if (!reply) return toast('Please type a reply first', 'bad');
+  try {
+    await adminApi(`/api/admin/feedback/${id}/reply`, 'POST', { reply });
+    toast(`Reply sent to ${email} ✅`, 'ok');
+    // Update card status visually
+    const card = document.getElementById('fb-' + id);
+    if (card) { card.className = 'fb-card completed'; }
+    await loadStats();
+  } catch(e) { toast(e.message, 'bad'); }
+}
+
+async function setStatus(id, status) {
+  try {
+    await adminApi(`/api/admin/feedback/${id}/status`, 'PATCH', { status });
+    toast(`Status updated to ${status}`, 'ok');
+    const card = document.getElementById('fb-' + id);
+    if (card) card.className = `fb-card ${status}`;
+    // Update badge
+    const badge = document.querySelector(`#fb-${id} .badge-pending, #fb-${id} .badge-reviewed, #fb-${id} .badge-in_progress, #fb-${id} .badge-completed`);
+    if (badge) { badge.className = `badge badge-${status}`; badge.textContent = status.replace('_',' '); }
+  } catch(e) { toast(e.message, 'bad'); }
+}
+
+// ── Users ─────────────────────────────────────────────────────
+async function loadUsers() {
+  try {
+    const { users } = await adminApi('/api/admin/users');
+    const el = document.getElementById('users-list');
+    if (!users.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">No users yet</div></div>';
+      return;
+    }
+    el.innerHTML = users.map(u => `
+      <div class="user-row">
+        <div>
+          <div class="user-name">${u.name}</div>
+        </div>
+        <div class="user-email">${u.email}</div>
+        <span class="badge badge-${u.plan}">${u.plan}</span>
+        <div class="user-login">${u.lastLoginAt ? fmtDate(u.lastLoginAt) : 'Never'}</div>
+        <div style="font-size:12px;color:var(--txt3)">${u.loginCount || 0}x</div>
+      </div>`).join('');
+  } catch(e) {
+    document.getElementById('users-list').innerHTML =
+      '<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-text">Failed to load users</div></div>';
+  }
+}
+
+// ── Pets ──────────────────────────────────────────────────────
+async function loadPets() {
+  try {
+    const { pets } = await adminApi('/api/admin/pets');
+    const el = document.getElementById('pets-list');
+    if (!pets.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">🐾</div><div class="empty-text">No pets reported yet</div></div>';
+      return;
+    }
+    const statusColor = { lost:'red', found:'green', available:'blue', pending:'gold', adopted:'purple' };
+    el.innerHTML = pets.map(p => `
+      <div class="pet-row">
+        <div>${p.photos && p.photos[0]
+          ? `<img class="pet-photo" src="${p.photos[0]}" alt="${p.name}" onerror="this.style.display='none'">`
+          : `<div class="pet-photo-placeholder">🐾</div>`}
+        </div>
+        <div>
+          <div style="font-weight:600;font-size:13px">${p.name}</div>
+          <div style="font-size:11px;color:var(--txt3)">${p.species}${p.breed ? ' · '+p.breed : ''}</div>
+        </div>
+        <span class="badge" style="color:var(--${statusColor[p.status]||'txt2'})">${p.status}</span>
+        <div style="font-size:11px;color:var(--txt3)">${p.reportedBy?.name || 'Unknown'}</div>
+        <div style="font-size:11px;color:var(--txt3)">${fmtDate(p.createdAt)}</div>
+      </div>`).join('');
+  } catch(e) {
+    document.getElementById('pets-list').innerHTML =
+      '<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-text">Failed to load pets</div></div>';
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+function fmtDate(d) {
+  if (!d) return '—';
+  const date = new Date(d);
+  const now  = new Date();
+  const diff = (now - date) / 1000;
+  if (diff < 60)   return 'Just now';
+  if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+  if (diff < 604800) return Math.floor(diff/86400) + 'd ago';
+  return date.toLocaleDateString('en-ZA', { day:'numeric', month:'short' });
+}
+
+let _toastTimer;
+function toast(msg, type='ok', dur=3000) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `show ${type}`;
+  clearTimeout(_toastTimer);
+  if (dur) _toastTimer = setTimeout(() => el.classList.remove('show'), dur);
+}
+</script>
+</body>
+</html>
