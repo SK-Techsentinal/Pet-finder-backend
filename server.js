@@ -56,6 +56,7 @@ app.use(cors({
 }));
 
 app.use(express.static('public'));
+app.get('/admin', (req, res) => res.sendFile('admin.html', { root: 'public' }));
 
 // ── Health Check ──────────────────────────────────────────────
 app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date() }));
