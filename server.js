@@ -85,6 +85,7 @@ app.use("/api/pets",     petRoutes);
 app.use("/api/feedback", feedbackRoutes);
 app.use('/api/tracker',  trackerRoutes);
 app.use('/public',       publicRoutes);
+app.use('/api/admin',    adminRoutes);
 
 // ── Error Handling ────────────────────────────────────────────
 app.use((req, res) => {
